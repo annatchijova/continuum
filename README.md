@@ -26,6 +26,11 @@ Owners can capture a note or import a local `.txt`, `.md`, `.csv`, or `.json`
 file after reviewing its text in the browser. Binary and PDF ingestion remains
 in the existing CLI path.
 
+New Studio workspaces enable the core's `memory.db` encryption before the first
+capture and archive each captured text in the encrypted artifact store. Existing
+vaults retain their current configuration; use `legacy encrypt-db` to migrate
+an older vault deliberately.
+
 ## Optional ChatGPT narration
 
 Set `OPENAI_API_KEY` and install the optional Agents SDK to enable GPT-5.6

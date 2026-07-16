@@ -181,6 +181,37 @@ def test_capture_preserves_safe_supported_text_file_extension():
         assert result["record"]["filename"].endswith("-contract.md")
 
 
+def test_capture_archives_data_and_removes_plaintext_staging_file():
+    with TemporaryDirectory() as directory:
+        workspace = Path(directory) / "legacy"
+        studio = Studio(workspace)
+        studio.create("alex", "a-long-test-passphrase")
+
+        result = studio.capture("A note", "A protected memory.", [])
+
+        assert not list((workspace / "inbox").iterdir())
+        assert result["record"]["content_hash"] in studio.agent._store.list_hashes()
+        assert b"A protected memory." not in (workspace / "memory.db").read_bytes()
+
+
+def test_new_studio_workspace_enables_core_database_encryption():
+    with TemporaryDirectory() as directory:
+        studio = Studio(Path(directory) / "legacy")
+        studio.create("alex", "a-long-test-passphrase")
+
+        assert studio.agent._index.db_key_hex
+
+
+def test_capture_rejects_text_larger_than_core_ingestion_limit():
+    with TemporaryDirectory() as directory:
+        studio = Studio(Path(directory) / "legacy")
+        studio.create("alex", "a-long-test-passphrase")
+
+        with pytest.raises(ValueError, match="64 KiB"):
+            studio.capture("Too much", "x" * 65_537, [])
+        studio.lock()
+
+
 def test_server_refuses_non_loopback_host():
     with pytest.raises(SystemExit) as exc:
         server.main(["--host", "0.0.0.0"])

@@ -28,6 +28,7 @@ APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 DEFAULT_WORKSPACE = Path(os.environ.get("CONTINUUM_DATA_DIR", ".continuum"))
 MAX_JSON_BODY_BYTES = 1_000_000
+MAX_CAPTURE_BYTES = 65_536
 
 
 def _decode_json_object(raw: bytes) -> dict[str, Any]:
@@ -78,6 +79,9 @@ class Studio:
             if agent._vault.exists():
                 raise ValueError("A vault already exists here. Unlock it instead.")
             agent.initialize(passphrase)
+            # Studio workspaces opt into the core's database-at-rest encryption
+            # before accepting their first captured memory.
+            agent.encrypt_database(passphrase)
             self.agent, self.passphrase = agent, passphrase
             self.role = "owner"
             return self.snapshot()
@@ -142,12 +146,22 @@ class Studio:
         tags = [tag.strip() for tag in tags if tag.strip()]
         if not body:
             raise ValueError("Add a memory before saving it.")
+        if len(body.encode("utf-8")) > MAX_CAPTURE_BYTES:
+            raise ValueError("Captured text must be 64 KiB or smaller.")
+        if self.passphrase is None:
+            raise RuntimeError("The open workspace has no session passphrase.")
         inbox = self.workspace / "inbox"
         inbox.mkdir(parents=True, exist_ok=True)
         # Randomized filename prevents a later capture from replacing prior evidence.
         path = inbox / _capture_filename(title, filename)
         path.write_text(body, encoding="utf-8")
-        record = agent.ingest(path, notes="Captured in Continuum Studio", tags=tags)
+        try:
+            record = agent.ingest(
+                path, notes="Captured in Continuum Studio", tags=tags
+            )
+            agent.archive_artifact(path, self.passphrase)
+        finally:
+            path.unlink(missing_ok=True)
         return {"record": record.to_dict(), "dashboard": self.snapshot()}
 
     def ask(self, question: str, *, allow_narration: bool = False) -> dict[str, Any]:
