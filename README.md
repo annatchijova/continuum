@@ -1,6 +1,44 @@
 # Continuum
 
-Deterministic, auditable, encrypted memory for a digital legacy.
+Continuum Studio is a local-first digital-legacy companion: a protected,
+navigable memory for the people who matter. It combines a polished web
+experience with a deterministic, auditable, encrypted core.
+
+![Continuum Studio](https://img.shields.io/badge/status-hackathon%20prototype-173e3c)
+
+## Try the product
+
+```bash
+python3 -m continuum_web.server --workspace .continuum-demo
+```
+
+Open `http://127.0.0.1:8787`, then choose **Explore a safe demo**. This creates
+only fictional data in the workspace supplied to `--workspace`. For the full
+demo script, architecture, and OpenAI integration boundary, see
+[HACKATHON.md](HACKATHON.md).
+
+The Studio uses no web-framework dependency. The original CLI remains fully
+available below for direct vault management.
+
+Studio has separate owner and heir entry points. Heir access delegates to the
+existing policy-aware core path and is intentionally read-only in the UI.
+Owners can capture a note or import a local `.txt`, `.md`, `.csv`, or `.json`
+file after reviewing its text in the browser. Binary and PDF ingestion remains
+in the existing CLI path.
+
+## Optional ChatGPT narration
+
+Set `OPENAI_API_KEY` and install the optional Agents SDK to enable GPT-5.6
+narration over locally retrieved evidence. A person must also explicitly tick
+the consent control in the UI. The core determines retrieval and access, while
+the agent only explains the sources already selected; the narration request is
+stateless and disables SDK tracing.
+
+```bash
+export OPENAI_API_KEY='...'
+pip install -e '.[agents]'
+python3 -m continuum_web.server
+```
 
 ## Hackathon session
 
