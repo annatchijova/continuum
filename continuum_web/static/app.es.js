@@ -35,6 +35,12 @@ function renderAnswer(container, result) {
     const label = document.createElement("b"); label.textContent = "NARRACIÓN OPCIONAL DE CHATGPT — NO ES UNA FUENTE";
     narration.append(label, document.createElement("br"), document.createTextNode(result.narration)); container.append(narration);
   }
+  if (result.agent_flow) {
+    const flow = document.createElement("p"); flow.className = "narration";
+    const label = document.createElement("b"); label.textContent = "FLUJO DE AGENTE VERIFICADO";
+    const narrationStates = { not_requested: "no solicitada", skipped_no_evidence: "omitida: no hay evidencia seleccionada por el núcleo", skipped_not_configured: "omitida: no está configurada", completed: "completada", failed: "no disponible" };
+    flow.append(label, document.createElement("br"), document.createTextNode(`El retrieval del núcleo se completó con ${result.agent_flow.selected_sources} fuente(s) seleccionada(s). Narración opcional: ${narrationStates[result.agent_flow.narration] || result.agent_flow.narration}.`)); container.append(flow);
+  }
 }
 function showStudio(data) {
   $("onboarding").hidden = true; $("studio").hidden = false; $("lockButton").hidden = false;

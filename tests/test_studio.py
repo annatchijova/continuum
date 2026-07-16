@@ -115,6 +115,46 @@ def test_narration_requires_explicit_opt_in():
         enabled.assert_called_once_with(opted_in=False)
 
 
+def test_agent_flow_is_audited_without_storing_question_or_evidence():
+    with TemporaryDirectory() as directory, patch(
+        "continuum_web.narrator.enabled", return_value=True
+    ), patch("continuum_web.narrator.narrate", return_value="A careful summary."):
+        studio = Studio(Path(directory) / "demo")
+        studio.demo()
+        question = "Where is the private apartment deed?"
+
+        result = studio.ask(question, allow_narration=True)
+        events = studio.agent._audit.events()
+
+        assert result["agent_flow"] == {
+            "retrieval": "completed",
+            "selected_sources": len(result["sources"]),
+            "narration": "completed",
+        }
+        assert [event["event_type"] for event in events][-3:] == [
+            "STUDIO_QUERY",
+            "STUDIO_NARRATION_REQUESTED",
+            "STUDIO_NARRATION_COMPLETED",
+        ]
+        assert all(question not in event["detail"] for event in events)
+        assert all("blue folder" not in event["detail"] for event in events)
+
+
+def test_agent_flow_skips_narration_when_the_core_selects_no_evidence():
+    with TemporaryDirectory() as directory, patch(
+        "continuum_web.narrator.enabled", return_value=True
+    ) as enabled, patch("continuum_web.narrator.narrate") as narrate:
+        studio = Studio(Path(directory) / "empty")
+        studio.create("alex", "a-long-test-passphrase")
+
+        result = studio.ask("Where is the deed?", allow_narration=True)
+
+        assert result["sources"] == []
+        assert result["agent_flow"]["narration"] == "skipped_no_evidence"
+        enabled.assert_called_once_with(opted_in=True)
+        narrate.assert_not_called()
+
+
 def test_agents_sdk_narrator_is_stateless_and_untraced(monkeypatch):
     captured = {}
 

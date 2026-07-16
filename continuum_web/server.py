@@ -199,7 +199,6 @@ class Studio:
         if not question:
             raise ValueError("Ask Continuum a question.")
         response = QueryEngine(agent._memory).query(question, top_k=6)
-        agent._audit.append("STUDIO_QUERY", actor=self.owner_id, detail=question[:80])
         sources = [
             {
                 "artifact": item.artifact,
@@ -208,15 +207,57 @@ class Studio:
             }
             for item in response.results
         ]
+        # The audit proves the workflow happened without recording a potentially
+        # sensitive natural-language question or any plaintext evidence.
+        agent._audit.append(
+            "STUDIO_QUERY",
+            actor=self.owner_id,
+            detail=(
+                f"intent={response.intent.value} selected_sources={len(sources)}"
+            ),
+        )
         narration = None
         narration_error = None
-        if narrator.enabled(opted_in=allow_narration) and sources:
+        narration_status = "not_requested"
+        narration_available = narrator.enabled(opted_in=allow_narration)
+        if allow_narration and not sources:
+            narration_status = "skipped_no_evidence"
+            agent._audit.append(
+                "STUDIO_NARRATION_SKIPPED",
+                actor=self.owner_id,
+                detail="reason=no_evidence selected_sources=0",
+            )
+        elif allow_narration and not narration_available:
+            narration_status = "skipped_not_configured"
+            agent._audit.append(
+                "STUDIO_NARRATION_SKIPPED",
+                actor=self.owner_id,
+                detail=f"reason=not_configured selected_sources={len(sources)}",
+            )
+        elif narration_available and sources:
+            agent._audit.append(
+                "STUDIO_NARRATION_REQUESTED",
+                actor=self.owner_id,
+                detail=f"consent=true selected_sources={len(sources)}",
+            )
             try:
                 narration = narrator.narrate(
                     question, response.answer, [item["excerpt"] for item in sources]
                 )
+                narration_status = "completed"
+                agent._audit.append(
+                    "STUDIO_NARRATION_COMPLETED",
+                    actor=self.owner_id,
+                    detail=f"selected_sources={len(sources)}",
+                )
             except narrator.NarrationError as exc:
                 narration_error = str(exc)
+                narration_status = "failed"
+                agent._audit.append(
+                    "STUDIO_NARRATION_FAILED",
+                    actor=self.owner_id,
+                    detail=f"selected_sources={len(sources)}",
+                )
         return {
             "answer": response.answer,
             "intent": response.intent.value,
@@ -224,6 +265,11 @@ class Studio:
             "sources": sources,
             "narration": narration,
             "narration_error": narration_error,
+            "agent_flow": {
+                "retrieval": "completed",
+                "selected_sources": len(sources),
+                "narration": narration_status,
+            },
             "mode": "GPT-5.6 narration + deterministic retrieval" if narration else "deterministic retrieval",
         }
 

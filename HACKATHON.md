@@ -39,6 +39,11 @@ answer, and the excerpts already selected by local retrieval; it uses
 reference data, so instructions found inside an imported memory cannot alter
 the narrator's role.
 
+Each question follows an inspectable local workflow: deterministic retrieval
+selects and displays sources first; only an explicit opt-in can request
+narration; then the local audit chain records the request outcome and source
+count without storing the question, excerpts, or model output in audit detail.
+
 The **Continuum agent contract** is intentionally restrictive:
 
 | Responsibility | Authority |
