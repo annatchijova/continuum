@@ -33,6 +33,19 @@ def test_ui_makes_cryptographic_product_guarantees_visible():
     assert "prefers-reduced-motion" in script
 
 
+def test_judge_briefing_is_a_separate_interactive_local_page():
+    root = Path(__file__).parents[1] / "continuum_web/static"
+    html = (root / "judges.html").read_text()
+    styles = (root / "judges.css").read_text()
+    script = (root / "judges.js").read_text()
+
+    assert 'href="/judges.css"' in html
+    assert 'src="/judges.js"' in html
+    assert "One source of truth." in html
+    assert "#616fb0" in styles
+    assert "replaceChildren" in script
+
+
 def test_demo_workspace_is_searchable_and_auditable():
     with TemporaryDirectory() as directory, patch("continuum_web.narrator.enabled", return_value=False):
         root = Path(directory) / "workspace"
