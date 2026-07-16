@@ -1,18 +1,18 @@
 """
 legacy/memory/field.py
 =======================
-field of memory adaptativo for the legado digital.
+Adaptive memory field for a digital legacy.
 
-Adaptado of raven-memory v1.1 (Anna Tchijova).
-Cambios key respecto to the original:
-  - without numpy/scipy as requisito duro (degradacion graceful).
-  - Embeddings: TF-IDF coseno as fallback determinista.
-  - state ternario preservado: REINFORCED / NEUTRAL / FORGOTTEN.
-  - STDP simplificado: co-activacion directa without KDTree BFS.
-  - each memory lleva su categoria (DocCategory) and artifact path.
-  - Hash chain of audit over each insertion and query.
+Adapted from raven-memory v1.1 (Anna Tchijova).
+Key changes from the original:
+  - numpy/scipy are optional dependencies (graceful degradation).
+  - Embeddings: deterministic TF-IDF cosine fallback.
+  - Three-state model preserved: REINFORCED / NEUTRAL / FORGOTTEN.
+  - Simplified STDP: direct co-activation without KDTree BFS.
+  - Each memory carries its category (DocCategory) and artifact path.
+  - Audit hash chain over every insertion and query.
 
-SQLite WAL for persistencia. Reconstruccion lazy of the index.
+SQLite WAL persistence. Lazy index reconstruction.
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ from legacy.core.dbcrypto import (
 )
 from legacy.ingestion.doc_types import DocCategory
 
-# Implementation note.
+# Optional scientific-computing acceleration.
 try:
     import numpy as np
     from scipy.spatial import KDTree
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS synaptic_links (
 );
 """
 
-RECENCY_HALFLIFE = 86_400.0     # 24h in segundos
+RECENCY_HALFLIFE = 86_400.0     # 24 hours in seconds
 STDP_POTENTIATION = 0.10
 STDP_DEPRESSION   = 0.02
 STDP_PRUNE_EPS    = 1e-9
@@ -129,13 +129,11 @@ class RecallResult:
     tags: List[str]
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Tokenization and vector helpers.
 
 def _tokenize(text: str) -> List[str]:
-    # Implementation note.
-    # Implementation note.
+    # NFC normalization makes canonically equivalent text share tokens.
+    # Restrict tokens to letters and digits.
     text = unicodedata.normalize("NFC", text)
     return re.findall(r"[a-zaeiounua-z0-9]+", text.lower())
 
@@ -155,27 +153,21 @@ def _cosine(a: List[float], b: List[float]) -> float:
 
 def _recency_bonus(last_access: float, now: float) -> float:
     delta = now - last_access
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Return no bonus for future timestamps.
     if delta < 0:
         return 0.0
     return 0.05 * math.exp(-math.log(2) * delta / RECENCY_HALFLIFE)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Memory field implementation.
 
 class MemoryField:
     """
-    field of memory of the legado.
-    db_path : SQLite where is persisten the memories.
+    Memory field for the legacy.
+    db_path : SQLite path where memories are persisted.
     """
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Columns encrypted when a database key is configured.
     _ENCRYPTED_COLUMNS = ("content", "embedding_json", "tags_json")
 
     def __init__(self, db_path: Path, db_key: Optional[bytes] = None) -> None:
@@ -184,20 +176,20 @@ class MemoryField:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
-        # Implementation note.
+        # Reconstruct the vocabulary lazily from readable content.
         self._vocab: List[str] = self._load_vocab()
 
     def set_db_key(self, db_key: Optional[bytes]) -> None:
         """
-        Inyecta (o quita) the key of encrypted tras open the vault and
-        reconstruye the vocabulario with the content already descifrable.
-        the MemoryField is construye in the __init__ of the agente, before of
-        open the vault; the key llega after.
+        Inject or remove the encryption key after opening the vault and
+        rebuild the vocabulary from currently readable content.
+        MemoryField is constructed in the agent's __init__ before the vault is
+        opened; the key becomes available afterward.
         """
         self._cipher = FieldCipher(db_key) if db_key else None
         self._vocab = self._load_vocab()
 
-    # Implementation note.
+    # Bind encrypted values to their memory row and column.
 
     @staticmethod
     def _aad(memory_id: str, column: str) -> str:
@@ -205,9 +197,9 @@ class MemoryField:
 
     def _enc(self, memory_id: str, column: str, value: str) -> str:
         """
-        Forma of storage of a valor logico in plaintext. with cipher 
-        ciphertext. without cipher  plaintext escapado (nunca colisiona with the
-        prefijo of ciphertext; FIX R5-001).
+        Return the stored form of a logical plaintext value. With a cipher,
+        return ciphertext; without one, escape plaintext so it can never
+        collide with the ciphertext prefix (FIX R5-001).
         """
         if self._cipher:
             return self._cipher.encrypt_field(value, self._aad(memory_id, column))
@@ -215,23 +207,23 @@ class MemoryField:
 
     def _dec(self, memory_id: str, column: str, value):
         """
-        Convierte the forma of storage in the valor logico in plaintext.
-        returns None if the valor no is legible in esta session (encrypted without
-        key, o key/AAD incorrectos). the caminos of lectura (recall,
-        vocab, consolidator) tratan None as "row that no participa" in
-        lugar of propagar the error  the deteccion of manipulacion is tarea
-        of verify_memory_integrity, no of the recall.
+        Convert the stored form into the logical plaintext value.
+        Return None when the value is unreadable in this session (encrypted
+        without a key, or incorrect key/AAD). Read paths (recall, vocabulary,
+        consolidator) treat None as a row that does not participate instead of
+        propagating the error. Tamper detection belongs to
+        verify_memory_integrity, not recall.
 
-        Tres formas of storage posibles:
-          - ciphertext (gcmf1:...)   requires cipher; None if missing o falla
-          - plaintext escapado (gcmf0:...)  is desescapa, legible without a key
-          - plaintext verbatim     tal cual (bases pre-0.5.0)
+        Three storage forms are possible:
+          - ciphertext (gcmf1:...) requires a cipher; None if unavailable or invalid
+          - escaped plaintext (gcmf0:...) unescaped and readable without a key
+          - verbatim plaintext (pre-0.5.0 databases)
         """
         if value is None:
             return None
         if is_encrypted(value):
             if not self._cipher:
-                return None       # encrypted without a key: opaco in esta session
+                return None       # Encrypted without a key: opaque in this session.
             try:
                 return self._cipher.decrypt_field(value, self._aad(memory_id, column))
             except FieldCryptoError:
@@ -253,9 +245,7 @@ class MemoryField:
         finally:
             conn.close()
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Vocabulary management.
 
     def _load_vocab(self) -> List[str]:
         with self._connect() as conn:
@@ -264,9 +254,9 @@ class MemoryField:
         for r in rows:
             content = self._dec(r["memory_id"], "content", r["content"])
             if content is None:
-                continue        # row encrypted without a key in esta session
+                continue        # Encrypted row without a key in this session.
             all_tokens.update(_tokenize(content))
-        # Implementation note.
+        # Keep the most frequent terms within the vocabulary cap.
         return sorted(t for t, _ in all_tokens.most_common(512))
 
     def _embed(self, text: str) -> List[float]:
@@ -278,17 +268,11 @@ class MemoryField:
     def _rebuild_vocab(self) -> None:
         self._vocab = self._load_vocab()
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Storage.
 
-    # Implementation note.
-    MAX_CONTENT_BYTES: int = 256 * 1024   # 256 KB
+    MAX_CONTENT_BYTES: int = 256 * 1024   # 256 KB content limit.
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Bound vocabulary growth during a session.
     _MAX_VOCAB_SIZE: int = 512
 
     def store(
@@ -300,11 +284,11 @@ class MemoryField:
         tags: Optional[List[str]] = None,
         state: MemoryState = MemoryState.NEUTRAL,
     ) -> str:
-        """Almacena a memory. returns the memory_id.
+        """Store a memory and return its memory_id.
 
-        FIX F-006: content truncado a MAX_CONTENT_BYTES if excede the limit.
+        FIX F-006: truncate content to MAX_CONTENT_BYTES when it exceeds the limit.
         """
-        # Implementation note.
+        # Enforce the maximum UTF-8 byte size.
         encoded = content.encode("utf-8")
         if len(encoded) > self.MAX_CONTENT_BYTES:
             content = encoded[: self.MAX_CONTENT_BYTES].decode("utf-8", errors="replace")
@@ -313,19 +297,15 @@ class MemoryField:
         now = time.time()
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-        # Implementation note.
+        # Add new tokens before computing the embedding.
         self._vocab = list(set(self._vocab) | set(_tokenize(content)))
         self._vocab.sort()
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
+        # Keep only the most useful vocabulary terms.
         if len(self._vocab) > self._MAX_VOCAB_SIZE:
             self._vocab = self._vocab[: self._MAX_VOCAB_SIZE]
         embedding = self._embed(content)
 
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
+        # Persist the memory and its encrypted fields.
         with self._connect() as conn:
             conn.execute(
                 """INSERT INTO memories
@@ -341,7 +321,7 @@ class MemoryField:
                     self._enc(mid, "tags_json", json.dumps(tags or [])),
                 ),
             )
-            # Implementation note.
+            # Create bidirectional STDP links with related memories.
             self._stdp_on_store(conn, mid, content, category)
 
         return mid
@@ -353,7 +333,7 @@ class MemoryField:
         content: str,
         category: DocCategory,
     ) -> None:
-        """Co-activacion: fortalecer enlaces with memories of same categoria."""
+        """Co-activation: strengthen links with memories in the same category."""
         peers = conn.execute(
             "SELECT memory_id FROM memories WHERE category=? AND memory_id!=? "
             "AND state != 'FORGOTTEN' LIMIT 10",
@@ -382,9 +362,7 @@ class MemoryField:
                 (new_id, pid, new_w, LinkType.RESONANT.value),
             )
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Recall and state updates.
 
     def recall(
         self,
@@ -395,8 +373,8 @@ class MemoryField:
         min_score: float = 0.01,
     ) -> List[RecallResult]:
         """
-        Recupera memories relevantes a the query.
-        Scoring: coseno  state_multiplier + recency_bonus.
+        Retrieve memories relevant to the query.
+        Scoring: cosine * state_multiplier + recency_bonus.
         """
         now = time.time()
         q_tokens = _tokenize(query)
@@ -418,7 +396,7 @@ class MemoryField:
             mid = r["memory_id"]
             content = self._dec(mid, "content", r["content"])
             if content is None:
-                continue        # row encrypted without a key in esta session
+                continue        # Encrypted row without a key in this session.
             emb = json.loads(self._dec(mid, "embedding_json", r["embedding_json"]) or "[]")
             if q_vec and emb and len(q_vec) == len(emb):
                 cos = _cosine(q_vec, emb)
@@ -461,7 +439,7 @@ class MemoryField:
         results.sort(key=lambda x: x[0], reverse=True)
         top = results[:top_k]
 
-        # Implementation note.
+        # Update access state and apply synaptic depression.
         activated = {e.memory_id for _, e in top}
         with self._connect() as conn:
             for _, entry in top:
@@ -470,8 +448,7 @@ class MemoryField:
                     "WHERE memory_id=?",
                     (now, entry.memory_id),
                 )
-            # Implementation note.
-            # Implementation note.
+            # Depress links from memories that were not activated.
             if activated:
                 placeholders = ",".join("?" * len(activated))
                 conn.execute(
@@ -498,20 +475,16 @@ class MemoryField:
             for score, entry in top
         ]
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Explicit state transitions.
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Keep the score bounded to prevent overflow.
     _MAX_SCORE: float = 1e9
 
     def reinforce(self, memory_id: str) -> None:
-        """Eleva the state of a memory a REINFORCED.
+        """Promote a memory to REINFORCED.
 
-        FIX R3-003: score acotado in _MAX_SCORE for prevenir overflow a inf
-        tras cientos of calls consecutivas.
+        FIX R3-003: cap the score at _MAX_SCORE to prevent overflow to infinity
+        after hundreds of consecutive calls.
         """
         with self._connect() as conn:
             conn.execute(
@@ -520,25 +493,23 @@ class MemoryField:
             )
 
     def forget(self, memory_id: str) -> None:
-        """Marca as FORGOTTEN (nunca borra  state, no eliminacion)."""
+        """Mark a memory FORGOTTEN (state change, never deletion)."""
         with self._connect() as conn:
             conn.execute(
                 "UPDATE memories SET state=? WHERE memory_id=?",
                 (MemoryState.FORGOTTEN.value, memory_id),
             )
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Encryption migration and status.
 
     def migrate_encryption(self) -> Dict[str, int]:
         """
-        encrypts at rest the rows that still are in plaintext. requires db_key
-        (set_db_key previo). Re-ejecutable: the rows already encrypted is are skipped
-        (encrypt_field is idempotente over tokens).
+        Encrypt rows that are still plaintext at rest. Requires db_key
+        (set_db_key first). Repeatable: already encrypted rows are skipped
+        (encrypt_field is idempotent for tokens).
 
-        Atomico by row; a corrida interrumpida deja a database mixta
-        plaintext/ciphertext perfectamente legible, and re-correr the complete.
+        Atomic per row; an interrupted run leaves a mixed plaintext/ciphertext
+        database that remains readable, and rerunning completes the migration.
         """
         if self._cipher is None:
             raise RuntimeError("migrate_encryption requires db_key (set_db_key).")
@@ -553,10 +524,7 @@ class MemoryField:
                 if all(is_encrypted(r[c]) for c in self._ENCRYPTED_COLUMNS):
                     skipped += 1
                     continue
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
+                # Re-encrypt only fields that are still stored as plaintext.
                 def _reenc(col: str) -> str:
                     stored = r[col] if r[col] is not None else "[]"
                     if is_encrypted(stored):
@@ -572,30 +540,25 @@ class MemoryField:
                 migrated += 1
 
         if migrated:
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
+            # Scrub plaintext left in free pages and the WAL.
             scrub = sqlite3.connect(self._db_path, timeout=30)
             try:
                 scrub.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                scrub.isolation_level = None      # VACUUM no admite transaccion
+                scrub.isolation_level = None      # VACUUM cannot run in a transaction.
                 scrub.execute("VACUUM")
             finally:
                 scrub.close()
         return {"migrated": migrated, "skipped": skipped}
 
     def encryption_status(self) -> Dict[str, int]:
-        """Cuenta rows encrypted vs in plaintext (by the column content)."""
+        """Count encrypted and plaintext rows using the content column."""
         with self._connect() as conn:
             rows = conn.execute("SELECT content FROM memories").fetchall()
         enc = sum(1 for r in rows if is_encrypted(r["content"]))
         return {"total": len(rows), "encrypted": enc, "plaintext": len(rows) - enc}
 
     def get_content(self, memory_id: str) -> Optional[str]:
-        """content decrypted of a memory (for cross-checks of the agente)."""
+        """Return decrypted memory content for agent cross-checks."""
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT content FROM memories WHERE memory_id=?", (memory_id,)
@@ -604,9 +567,7 @@ class MemoryField:
             return None
         return self._dec(memory_id, "content", row["content"])
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Aggregate statistics.
 
     def stats(self) -> Dict[str, Any]:
         with self._connect() as conn:
