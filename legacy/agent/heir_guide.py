@@ -1,27 +1,27 @@
 """
 legacy/agent/heir_guide.py
 ===========================
-Generador de la Guía del Heredero.
+Heir Guide Generator.
 
-El entregable central del producto: cuando el vault se activa, el heredero
-no recibe una base de datos — recibe un documento legible que le dice QUÉ
-hay, POR DÓNDE empezar y CÓMO verificar que nada fue manipulado.
+The product's central deliverable: when the vault activates, the heir does
+not receive a database — they receive a readable document explaining WHAT
+exists, WHERE to begin, and HOW to verify that nothing was manipulated.
 
 Propiedades:
-  - Determinista : mismo índice + mismo instante → mismo markdown, byte a
-    byte. Sin LLM. El orden viene de la prioridad de CATEGORY_PROFILES
-    (1 = urgente para trámites) y, dentro de cada categoría, del nombre
-    de archivo. Reproducible para auditoría.
-  - Autónomo     : el documento incluye las instrucciones de verificación
-    (verify_legacy.py) para que el heredero no dependa de este software
-    para confiar en el audit trail.
-  - Sin secretos : la guía lista rutas, hashes y metadatos — nunca
-    contenido de credenciales ni la passphrase.
+  - Deterministic: the same index and timestamp produce the same markdown,
+    byte for byte. No LLM. Ordering follows CATEGORY_PROFILES priority
+    (1 = urgent administrative matters), then the filename within each
+    category. Reproducible for auditing.
+  - Self-contained: the document includes verification instructions
+    (verify_legacy.py), so the heir does not need this software to trust the
+    audit trail.
+  - No secrets: the guide lists paths, hashes, and metadata — never
+    credential contents or the passphrase.
 
 Uso:
     from legacy.agent.heir_guide import build_guide
-    md = build_guide(index)                        # dict o LegacyIndex
-    md = agent.heir_guide(actor="heir_1")          # con evento de audit
+    md = build_guide(index)                        # dict or LegacyIndex
+    md = agent.heir_guide(actor="heir_1")          # with an audit event
 """
 from __future__ import annotations
 
@@ -30,36 +30,36 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from legacy.ingestion.doc_types import CATEGORY_PROFILES, DocCategory
 
-# Prioridad de categorías desconocidas / sin perfil: al final.
+# Unknown categories or categories without a profile go last.
 _FALLBACK_PRIORITY = 99
 
-# Qué significa cada categoría para un heredero sin contexto técnico.
+# What each category means to an heir without technical context.
 _CATEGORY_GUIDANCE: Dict[str, str] = {
     DocCategory.LEGAL.value:
-        "Documentos legales — testamentos, poderes, contratos. "
-        "Llevalos a un escribano o abogado ANTES de tomar decisiones.",
+        "Legal documents — wills, powers of attorney, and contracts. "
+        "Take them to a notary or lawyer BEFORE making decisions.",
     DocCategory.FINANCIAL.value:
-        "Cuentas, inversiones y seguros. Los bancos suelen congelar cuentas "
-        "al ser notificados: relevá todo antes de avisar.",
+        "Accounts, investments, and insurance. Banks often freeze accounts "
+        "after notification: review everything before notifying them.",
     DocCategory.IDENTITY.value:
-        "Documentos de identidad. Necesarios para casi todos los trámites.",
+        "Identity documents. Required for almost every administrative matter.",
     DocCategory.MEDICAL.value:
-        "Historial médico. Relevante para seguros de vida y causas pendientes.",
+        "Medical history. Relevant to life insurance and pending matters.",
     DocCategory.REAL_ESTATE.value:
-        "Propiedades e hipotecas. Verificá deudas y expensas pendientes.",
+        "Property and mortgages. Check for outstanding debts and fees.",
     DocCategory.SUBSCRIPTION.value:
-        "Servicios con cobro recurrente. Cancelalos pronto para frenar débitos.",
+        "Recurring-billing services. Cancel them promptly to stop charges.",
     DocCategory.CREDENTIAL.value:
-        "Indicios de cuentas y accesos (sin contraseñas). Lista de servicios "
-        "donde existir dados de baja o reclamar.",
+        "Clues about accounts and access (no passwords). A list of services "
+        "where accounts may need to be closed or claims filed.",
     DocCategory.PROFESSIONAL.value:
-        "Títulos, proyectos y trayectoria profesional.",
+        "Degrees, projects, and professional history.",
     DocCategory.PERSONAL.value:
-        "Cartas, diarios y memorias personales.",
+        "Letters, journals, and personal memories.",
     DocCategory.MEDIA.value:
-        "Fotos, videos y audio.",
+        "Photos, videos, and audio.",
     DocCategory.UNKNOWN.value:
-        "Sin clasificar — revisá manualmente.",
+        "Unclassified — review manually.",
 }
 
 
@@ -74,7 +74,7 @@ def _category_priority(cat_value: str) -> int:
 def _group_artifacts(
     artifacts: List[Dict[str, Any]],
 ) -> List[Tuple[str, List[Dict[str, Any]]]]:
-    """Agrupa por categoría y ordena por (prioridad, categoría, filename)."""
+    """Group by category and sort by (priority, category, filename)."""
     groups: Dict[str, List[Dict[str, Any]]] = {}
     for a in artifacts:
         groups.setdefault(a.get("category", "unknown"), []).append(a)
@@ -94,13 +94,13 @@ def build_guide(
     generated_at: Optional[str] = None,
 ) -> str:
     """
-    Genera la guía en markdown a partir del índice del vault.
+    Generate the guide in markdown from the vault index.
 
-    index           : LegacyIndex o su dict (como sale del vault).
-    memory_stats    : MemoryField.stats() — opcional.
-    audit_length    : cantidad de eventos del audit trail — opcional.
-    archived_hashes : content_hashes presentes en el ArtifactStore cifrado.
-    generated_at    : ISO 8601; inyectable para salida 100% reproducible.
+    index           : LegacyIndex or its dictionary representation.
+    memory_stats    : MemoryField.stats() — optional.
+    audit_length    : number of audit-trail events — optional.
+    archived_hashes : content hashes present in the encrypted ArtifactStore.
+    generated_at    : ISO 8601; injectable for fully reproducible output.
     """
     d: Dict[str, Any] = index if isinstance(index, dict) else index.to_dict()
     artifacts: List[Dict[str, Any]] = d.get("artifacts", [])
@@ -113,43 +113,43 @@ def build_guide(
     lines: List[str] = []
     w = lines.append
 
-    w("# Guía del Heredero — Legado Digital")
+    w("# Heir Guide — Digital Legacy")
     w("")
-    w(f"**Propietario:** {d.get('owner_id', '?')}  ")
-    w(f"**Legado creado:** {d.get('created_at', '?')}  ")
-    w(f"**Última actualización:** {d.get('last_updated', '?')}  ")
-    w(f"**Guía generada:** {ts}")
+    w(f"**Owner:** {d.get('owner_id', '?')}  ")
+    w(f"**Legacy created:** {d.get('created_at', '?')}  ")
+    w(f"**Last updated:** {d.get('last_updated', '?')}  ")
+    w(f"**Guide generated:** {ts}")
     w("")
-    w("Este documento fue generado de forma determinista a partir del índice")
-    w("cifrado del legado. No contiene contraseñas ni contenido sensible —")
-    w("solo el mapa de qué existe, dónde está y cómo verificarlo.")
+    w("This document was generated deterministically from the encrypted legacy")
+    w("index. It contains no credential secrets or sensitive content — only a map of")
+    w("what exists, where it is, and how to verify it.")
     w("")
 
     # ── Resumen ───────────────────────────────────────────────────────────
-    w("## Resumen")
+    w("## Summary")
     w("")
-    w(f"- Artifacts indexados: **{len(artifacts)}**")
+    w(f"- Indexed artifacts: **{len(artifacts)}**")
     if archived:
         w(f"- Artifacts with an encrypted copy in storage: **{len(archived)}**")
     if memory_stats:
-        w(f"- Memorias consultables: **{memory_stats.get('total', 0)}**")
+        w(f"- Queryable memories: **{memory_stats.get('total', 0)}**")
     if audit_length is not None:
-        w(f"- Eventos en el audit trail: **{audit_length}**")
+        w(f"- Audit-trail events: **{audit_length}**")
     if heirs:
         names = ", ".join(
             h.get("display_name") or h.get("heir_id", "?") for h in heirs
         )
-        w(f"- Herederos registrados: {names}")
+        w(f"- Registered heirs: {names}")
     w("")
 
-    # ── Por dónde empezar ─────────────────────────────────────────────────
-    w("## Por dónde empezar")
+    # ── Where to start ────────────────────────────────────────────────────
+    w("## Where to start")
     w("")
-    w("Las categorías están ordenadas por urgencia (1 = atender primero).")
+    w("Categories are ordered by urgency (1 = address first).")
     w("")
 
     if not artifacts:
-        w("*El índice no contiene artifacts.*")
+        w("*The index contains no artifacts.*")
         w("")
     else:
         for cat, items in _group_artifacts(artifacts):
@@ -161,49 +161,48 @@ def build_guide(
                 w(f"> {guidance}")
                 w("")
             for a in items:
-                fname = a.get("filename") or "(sin nombre)"
+                fname = a.get("filename") or "(unnamed)"
                 path = a.get("path", "?")
                 chash = (a.get("content_hash") or "")[:16]
                 notes = a.get("notes") or ""
                 tags = a.get("tags") or []
                 mark = " 🔒" if a.get("content_hash") in archived else ""
                 w(f"- **{fname}**{mark}")
-                w(f"  - Ruta: `{path}`")
-                w(f"  - Hash: `{chash}…` — ingresado {a.get('ingested_at', '?')}")
+                w(f"  - Path: `{path}`")
+                w(f"  - Hash: `{chash}…` — ingested {a.get('ingested_at', '?')}")
                 if tags:
                     w(f"  - Tags: {', '.join(tags)}")
                 if notes:
-                    w(f"  - Nota del propietario: {notes}")
+                    w(f"  - Owner note: {notes}")
             w("")
         if archived:
             w("The 🔒 symbol indicates that an encrypted copy of the file exists in")
-            w("`<data_dir>/artifacts/` recuperable con `legacy restore <hash>`.")
+            w("`<data_dir>/artifacts/` and can be restored with `legacy restore <hash>`.")
             w("")
 
-    # ── Verificación ──────────────────────────────────────────────────────
-    w("## Cómo verificar que nada fue manipulado")
+    # ── Verification ──────────────────────────────────────────────────────
+    w("## How to verify that nothing was manipulated")
     w("")
-    w("1. El audit trail registra cada acceso al legado con una cadena de")
-    w("   hashes. Verificalo con el script autónomo (solo requiere Python):")
+    w("1. The audit trail records every access to the legacy in a hash chain.")
+    w("   Verify it with the self-contained script (requires only Python):")
     w("")
     w("   ```")
     w("   python3 verify_legacy.py <data_dir>/audit.db")
     w("   ```")
     w("")
-    w("2. Si el propietario te entregó una clave HMAC, usala — sin ella la")
-    w("   verificación detecta accidentes pero no a un atacante que reescriba")
-    w("   la cadena completa:")
+    w("2. If the owner gave you an HMAC key, use it — without one, verification")
+    w("   detects accidents but not an attacker who rewrites the entire chain:")
     w("")
     w("   ```")
-    w("   python3 verify_legacy.py <data_dir>/audit.db --hmac-key-hex <clave>")
+    w("   python3 verify_legacy.py <data_dir>/audit.db --hmac-key-hex <key>")
     w("   ```")
     w("")
-    w("3. El hash listado junto a cada artifact es el SHA-256 de su contenido")
-    w("   al momento de la ingestión. Podés recomputarlo sobre el archivo")
-    w("   actual para detectar modificaciones posteriores.")
+    w("3. The hash listed next to each artifact is the SHA-256 of its content")
+    w("   at ingestion time. Recompute it for the current file to detect later")
+    w("   modifications.")
     w("")
     w("---")
-    w(f"*Generado por Digital Legacy — {ts}*")
+    w(f"*Generated by Digital Legacy — {ts}*")
     w("")
 
     return "\n".join(lines)

@@ -1,7 +1,7 @@
 """
 tests/test_heir_guide.py
 =========================
-Guía del Heredero: markdown determinista ordenado por prioridad.
+Heir Guide: deterministic markdown ordered by priority.
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ _INDEX = {
             "filename": "testamento.pdf", "category": "legal",
             "content_hash": "a" * 64, "classification_confidence": "HIGH",
             "memory_id": "m2", "ingested_at": "2026-02-01T00:00:00+00:00",
-            "tags": ["urgente"], "notes": "original en la escribanía",
+            "tags": ["urgent"], "notes": "original at the notary office",
         },
         {
             "artifact_id": "a3", "path": "/docs/netflix.txt",
@@ -54,18 +54,18 @@ def test_guide_is_deterministic():
 
 def test_categories_ordered_by_priority():
     guide = build_guide(_INDEX, generated_at=_TS)
-    # legal (prioridad 1) antes que subscription (2), antes que media (4)
+    # legal (priority 1) before subscription (2), before media (4)
     assert guide.index("[1] legal") < guide.index("[2] subscription") < guide.index("[4] media")
 
 
 def test_guide_content_fields():
     guide = build_guide(_INDEX, generated_at=_TS)
     assert "testamento.pdf" in guide
-    assert "original en la escribanía" in guide      # notes del propietario
-    assert "urgente" in guide                        # tags
-    assert "Olga" in guide                           # herederos
-    assert "verify_legacy.py" in guide               # instrucciones de verificación
-    assert ("a" * 16) + "…" in guide                 # hash truncado
+    assert "original at the notary office" in guide  # owner note
+    assert "urgent" in guide                         # tags
+    assert "Olga" in guide                            # heirs
+    assert "verify_legacy.py" in guide                # verification instructions
+    assert ("a" * 16) + "…" in guide                  # truncated hash
 
 
 def test_guide_marks_archived_artifacts():
@@ -78,21 +78,21 @@ def test_guide_marks_archived_artifacts():
 
 def test_guide_never_contains_passphrase_or_key_material():
     guide = build_guide(_INDEX, generated_at=_TS)
-    for forbidden in ("passphrase", "password", "contraseña:"):
-        assert forbidden not in guide.lower().replace("contraseñas ni", "")
+    for forbidden in ("passphrase", "password", "credential:"):
+        assert forbidden not in guide.lower().replace("credential secrets", "")
 
 
 def test_empty_index():
     empty = dict(_INDEX, artifacts=[], heirs=[])
     guide = build_guide(empty, generated_at=_TS)
-    assert "no contiene artifacts" in guide
+    assert "contains no artifacts" in guide
 
 
 def test_agent_heir_guide_audits(tmp_path):
     agent = LegacyAgent(tmp_path, "anna")
     agent.initialize(PASS)
     src = tmp_path / "carta.txt"
-    src.write_text("Querido hijo: esta es una carta personal para vos.", encoding="utf-8")
+    src.write_text("Dear child: this is a personal letter for you.", encoding="utf-8")
     agent.ingest(src)
 
     guide = agent.heir_guide(actor="h1")
