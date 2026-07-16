@@ -25,12 +25,10 @@ def cipher():
     return FieldCipher(KEY)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Field encryption and authentication behavior.
 
 def test_roundtrip(cipher):
-    for text in ["testamento ante notario", "", "    ", "x" * 10000]:
+    for text in ["will before the notary", "", "    ", "x" * 10000]:
         token = cipher.encrypt_field(text, AAD)
         assert is_encrypted(token)
         assert token.startswith(FIELD_PREFIX)
@@ -38,25 +36,23 @@ def test_roundtrip(cipher):
 
 
 def test_ciphertext_hides_plaintext(cipher):
-    token = cipher.encrypt_field("SECRETO-in-CLARO", AAD)
-    assert "SECRETO" not in token
+    token = cipher.encrypt_field("SECRET-IN-PLAINTEXT", AAD)
+    assert "SECRET" not in token
 
 
 def test_nonce_is_random(cipher):
     a = cipher.encrypt_field("same text", AAD)
     b = cipher.encrypt_field("same text", AAD)
-    assert a != b                                # nonce fresco by valor
+    assert a != b                                # fresh nonce for the same value
     assert cipher.decrypt_field(a, AAD) == cipher.decrypt_field(b, AAD)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Associated-data binding.
 
 def test_wrong_aad_fails(cipher):
-    token = cipher.encrypt_field("dato", "mem-1:content")
+    token = cipher.encrypt_field("value", "mem-1:content")
     with pytest.raises(FieldCryptoError):
-        cipher.decrypt_field(token, "mem-2:content")     # valor movido of row
+        cipher.decrypt_field(token, "mem-2:content")     # value moved to another row
     with pytest.raises(FieldCryptoError):
         cipher.decrypt_field(token, "mem-1:tags")        # movido of column
 
@@ -74,14 +70,12 @@ def test_tampered_token_fails(cipher):
         cipher.decrypt_field(tampered, AAD)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Tamper detection and plaintext escaping.
 
 def test_decrypt_passes_through_plaintext(cipher):
-    """a database a medio migrar: valores in plaintext is leen tal cual."""
-    assert cipher.decrypt_field("valor in plaintext", AAD) == "valor in plaintext"
-    assert not is_encrypted("valor in plaintext")
+    """A partially migrated database reads plaintext values unchanged."""
+    assert cipher.decrypt_field("plaintext value", AAD) == "plaintext value"
+    assert not is_encrypted("plaintext value")
 
 
 def test_encrypt_always_encrypts_even_prefix_like_plaintext(cipher):
@@ -100,9 +94,7 @@ def test_maybe_decrypt(cipher):
     assert cipher.maybe_decrypt(token, AAD) == "encrypted"
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Key validation.
 
 def test_key_must_be_32_bytes():
     with pytest.raises(ValueError):

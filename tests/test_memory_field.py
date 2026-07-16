@@ -1,7 +1,7 @@
 """
 tests/test_memory_field.py
 ===========================
-Tests of the field of memory with STDP and estados ternarios.
+Tests for the memory field with STDP and ternary states.
 """
 import time
 
@@ -16,20 +16,18 @@ def mem(tmp_path):
     return MemoryField(tmp_path / "mem.db")
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Basic storage and recall.
 
 def test_store_returns_id(mem):
-    mid = mem.store("contract of hipoteca banco cuenta", category=DocCategory.LEGAL)
+    mid = mem.store("contract mortgage bank account", category=DocCategory.LEGAL)
     assert isinstance(mid, str)
     assert len(mid) == 36  # UUID4
 
 
 def test_recall_finds_stored(mem):
-    mem.store("contract of hipoteca banco escritura", category=DocCategory.LEGAL,
+    mem.store("contract mortgage bank deed", category=DocCategory.LEGAL,
               artifact="/docs/contract.pdf")
-    results = mem.recall("contract hipoteca")
+    results = mem.recall("contract mortgage")
     assert len(results) > 0
 
 
@@ -50,10 +48,10 @@ def test_recall_empty_returns_empty(mem):
 
 def test_recall_updates_recall_count(tmp_path):
     mem = MemoryField(tmp_path / "m.db")
-    mid = mem.store("testamento escritura notarial contract herencia",
+    mid = mem.store("will notarial deed contract inheritance",
                     category=DocCategory.LEGAL)
-    mem.recall("testamento notarial")
-    # Implementation note.
+    mem.recall("will notarial")
+    # Stored content is normalized and hashed consistently.
     import sqlite3
     conn = sqlite3.connect(tmp_path / "m.db")
     row = conn.execute(
@@ -63,13 +61,11 @@ def test_recall_updates_recall_count(tmp_path):
     assert row[0] >= 1
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Memory state transitions.
 
 def test_initial_state_is_neutral(tmp_path):
     mem = MemoryField(tmp_path / "m.db")
-    mid = mem.store("contract legal escritura", category=DocCategory.LEGAL)
+    mid = mem.store("contract legal deed", category=DocCategory.LEGAL)
     import sqlite3
     conn = sqlite3.connect(tmp_path / "m.db")
     row = conn.execute(
@@ -94,7 +90,7 @@ def test_reinforce_changes_state(tmp_path):
 
 def test_forget_changes_state(tmp_path):
     mem = MemoryField(tmp_path / "m.db")
-    mid = mem.store("nota temporal irrelevante", category=DocCategory.PERSONAL)
+    mid = mem.store("irrelevant temporary note", category=DocCategory.PERSONAL)
     mem.forget(mid)
     import sqlite3
     conn = sqlite3.connect(tmp_path / "m.db")
@@ -106,9 +102,9 @@ def test_forget_changes_state(tmp_path):
 
 
 def test_forgotten_not_recalled(mem):
-    mid = mem.store("nota that is va a olvidar contract", category=DocCategory.PERSONAL)
+    mid = mem.store("note that will be forgotten contract", category=DocCategory.PERSONAL)
     mem.forget(mid)
-    results = mem.recall("nota olvidar contract")
+    results = mem.recall("note forgotten contract")
     ids = [r.memory_id for r in results]
     assert mid not in ids
 
@@ -117,16 +113,16 @@ def test_reinforced_scores_higher(tmp_path):
     """a memory REINFORCED must tener mayor score in recall that a NEUTRAL similar."""
     mem = MemoryField(tmp_path / "m.db")
     mid_reinforced = mem.store(
-        "contract escritura property inmueble notarial legal",
+        "contract deed property real estate notarial legal",
         category=DocCategory.LEGAL,
         state=MemoryState.REINFORCED,
     )
     mid_neutral = mem.store(
-        "contract escritura property inmueble notarial legal copy",
+        "contract deed property real estate notarial legal copy",
         category=DocCategory.LEGAL,
         state=MemoryState.NEUTRAL,
     )
-    results = mem.recall("contract escritura legal")
+    results = mem.recall("contract deed legal")
     score_map = {r.memory_id: r.final_score for r in results}
 
     assert mid_reinforced in score_map
@@ -134,14 +130,12 @@ def test_reinforced_scores_higher(tmp_path):
     assert score_map[mid_reinforced] >= score_map[mid_neutral]
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Synapse and reinforcement behavior.
 
 def test_stdp_creates_synaptic_links(tmp_path):
     """Almacenar multiples memories of the same categoria crea links STDP."""
     mem = MemoryField(tmp_path / "m.db")
-    mem.store("contract hipoteca banco inmueble", category=DocCategory.FINANCIAL)
+    mem.store("contract mortgage bank real estate", category=DocCategory.FINANCIAL)
     mem.store("inversion fondos seguro of vida", category=DocCategory.FINANCIAL)
     import sqlite3
     conn = sqlite3.connect(tmp_path / "m.db")
@@ -150,9 +144,7 @@ def test_stdp_creates_synaptic_links(tmp_path):
     assert count > 0
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Recall and filtering behavior.
 
 def test_stats_empty(mem):
     stats = mem.stats()
@@ -167,17 +159,15 @@ def test_stats_after_inserts(mem):
     assert "by_category" in stats
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Database integrity behavior.
 
 def test_persistence_across_instances(tmp_path):
     db = tmp_path / "persist.db"
     m1 = MemoryField(db)
-    mid = m1.store("testamento herencia notarial escritura",
+    mid = m1.store("will inheritance notarial deed",
                    category=DocCategory.LEGAL)
 
     m2 = MemoryField(db)
-    results = m2.recall("testamento")
+    results = m2.recall("will")
     ids = [r.memory_id for r in results]
     assert mid in ids
