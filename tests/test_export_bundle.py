@@ -1,7 +1,7 @@
 """
 tests/test_export_bundle.py
 ============================
-Export bundle: paquete portable and verificable for heirs.
+Export bundle: portable and verifiable package for heirs.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def agent(tmp_path):
     a = LegacyAgent(tmp_path / "data", "anna")
     a.initialize(PASS)
     src = tmp_path / "testamento.txt"
-    src.write_text("testamento and last voluntad ante the notario", encoding="utf-8")
+    src.write_text("will and last wishes before the notary", encoding="utf-8")
     a.ingest(src)
     a.archive_artifact(src, PASS)
     a.add_heir("h1", "Olga")
@@ -49,7 +49,7 @@ def test_bundle_structure_and_manifest(agent, tmp_path):
     assert manifest["artifacts_included"] == 1
     assert manifest["artifacts_verified"] is True
 
-    # Implementation note.
+    # The manifest must verify every bundle file.
     assert check_manifest(dest) == []
 
 
@@ -60,7 +60,7 @@ def test_bundle_audit_is_valid_and_records_export(agent, tmp_path):
     events = VL._load_events(dest / "audit.db")
     result = VL.verify(events, hmac_key=None)
     assert result.valid, [(e.seq, e.kind) for e in result.errors]
-    # Implementation note.
+    # The copied chain must remain valid.
     assert "BUNDLE_EXPORTED" in [e["event_type"] for e in events]
 
 
@@ -68,18 +68,17 @@ def test_bundle_artifacts_are_directly_restorable(agent, tmp_path):
     dest = tmp_path / "bundle"
     manifest = export_bundle(agent, dest, actor="anna", passphrase=PASS)
 
-    # Implementation note.
-    # Implementation note.
+    # The encrypted artifact must remain directly restorable.
     store = ArtifactStore(dest / "artifacts")
     [h] = store.list_hashes()
     store_key = bytes.fromhex(agent._index.store_key_hex)
-    assert b"testamento" in store.get(h, store_key)
+    assert b"will" in store.get(h, store_key)
 
 
 def test_manifest_detects_post_export_tampering(agent, tmp_path):
     dest = tmp_path / "bundle"
     export_bundle(agent, dest, actor="anna", passphrase=PASS)
-    (dest / "GUIA_DEL_HEREDERO.md").write_text("guia forged", encoding="utf-8")
+    (dest / "GUIA_DEL_HEREDERO.md").write_text("forged guide", encoding="utf-8")
     problems = check_manifest(dest)
     assert any("GUIA_DEL_HEREDERO.md" in p for p in problems)
 
@@ -89,14 +88,14 @@ def test_export_aborts_on_corrupt_artifact(agent, tmp_path):
     raw = bytearray(enc.read_bytes())
     raw[-1] ^= 0xFF
     enc.write_bytes(bytes(raw))
-    with pytest.raises(ValueError, match="corruptos"):
+    with pytest.raises(ValueError, match="corrupt"):
         export_bundle(agent, tmp_path / "bundle", actor="anna", passphrase=PASS)
 
 
 def test_export_refuses_non_empty_dest(agent, tmp_path):
     dest = tmp_path / "bundle"
     dest.mkdir()
-    (dest / "algo.txt").write_text("x", encoding="utf-8")
+    (dest / "something.txt").write_text("x", encoding="utf-8")
     with pytest.raises(ValueError, match="not empty"):
         export_bundle(agent, dest, actor="anna", passphrase=PASS)
 
@@ -108,11 +107,10 @@ def test_export_requires_unlocked(agent, tmp_path):
 
 
 def test_bundle_audit_copy_is_wal_safe(agent, tmp_path):
-    """the backup must incluir transacciones that still viven in the -wal."""
+    """The backup must include transactions still present in the -wal."""
     dest = tmp_path / "bundle"
     export_bundle(agent, dest, actor="anna", passphrase=PASS)
-    # Implementation note.
-    # Implementation note.
+    # The latest event must be present in the copied database.
     with sqlite3.connect(dest / "audit.db") as conn:
         last = conn.execute(
             "SELECT event_type FROM audit_events ORDER BY seq DESC LIMIT 1"
