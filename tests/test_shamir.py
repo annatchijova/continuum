@@ -1,7 +1,7 @@
 """
 tests/test_shamir.py
 =====================
-Shamir Secret Sharing: propiedades matematicas and formato of share.
+Shamir Secret Sharing: mathematical properties and share format.
 """
 from __future__ import annotations
 
@@ -114,7 +114,7 @@ def test_two_splits_produce_incompatible_shares():
     b = split_secret(secret, shares=3, threshold=2)
     # Implementation note.
     # Implementation note.
-    with pytest.raises(ShamirError, match="no verifica"):
+    with pytest.raises(ShamirError, match="verification failed"):
         combine_shares([a[0], b[1]])
 
 
@@ -125,14 +125,14 @@ def test_tampered_share_detected():
         x=shares[0].x, threshold=2, total=3, digest=shares[0].digest,
         data=bytes(b ^ 0xFF for b in shares[0].data),
     )
-    with pytest.raises(ShamirError, match="no verifica"):
+    with pytest.raises(ShamirError, match="verification failed"):
         combine_shares([bad, shares[1]])
 
 
 def test_duplicate_share_rejected():
     secret = _secrets.token_bytes(8)
     shares = split_secret(secret, shares=3, threshold=2)
-    with pytest.raises(ShamirError, match="duplicados"):
+    with pytest.raises(ShamirError, match="Duplicate shares"):
         combine_shares([shares[0], shares[0]])
 
 

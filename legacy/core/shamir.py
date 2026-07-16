@@ -1,36 +1,36 @@
 """
 legacy/core/shamir.py
 ======================
-Shamir Secret Sharing over GF(2^8)  reparto of secretos with umbral.
+Shamir Secret Sharing over GF(2^8): threshold-based secret splitting.
 
-a secreto of B bytes is reparte in N shares of forma that any
-subconjunto of K shares it reconstruye, and K-1 shares no revelan NADA
-(seguridad information-theoretic: each subconjunto of K-1 shares is
-consistente with all the secretos posibles, with igual probabilidad).
+A B-byte secret is split into N shares so that any subset of K shares
+reconstructs it, while K-1 shares reveal nothing (information-theoretic
+security: every subset of K-1 shares is consistent with every possible secret
+with equal probability).
 
-Construccion (identica in espiritu a HashiCorp Vault / SSSS clasico):
-  - the cuerpo is GF(2^8) with the polinomio of AES (x^8+x^4+x^3+x+1, 0x11B).
-  - by each byte of the secreto is generates a polinomio aleatorio of grado
-    K-1 cuyo term constante is the byte of the secreto.
-  - the share i (with x = i, i  1..N) recibe the evaluation of the polinomio
-    in x=i, byte a byte.
-  - Reconstruccion: interpolacion of Lagrange in x=0.
+Construction (similar in spirit to HashiCorp Vault / classic SSSS):
+  - The field is GF(2^8) with the AES polynomial (x^8+x^4+x^3+x+1, 0x11B).
+  - For each secret byte, generate a random polynomial of degree K-1 whose
+    constant term is that secret byte.
+  - Share i (x=i, i in 1..N) receives the polynomial evaluation at x=i,
+    byte by byte.
+  - Reconstruction uses Lagrange interpolation at x=0.
 
-Formato of share (a linea, imprimible, apta for papel/over):
+Share format (one printable line, suitable for paper or transcription):
 
     dlshare-v1:<base64url of JSON>
 
   JSON: {"v":1, "x":i, "k":umbral, "n":total, "d":<sha256(secreto)[:4] hex>,
          "and":<hex of the bytes of the share>}
 
-  the field "d" allows verificar that the reconstruccion produjo the secreto
-  correcto (and detects mezclas of shares of repartos distintos). are 32
-  bits of the hash: suficiente for verificacion, inservible as oraculo
-  when the secreto is aleatorio of 32 bytes  the unico uso in este
-  proyecto. NO usar este module for repartir secretos of baja entropia
-  (a contrasena humana) without quitar the digest.
+  Field "d" verifies that reconstruction produced the correct secret and
+  detects mixing shares from different splits. It contains 32 bits of the
+  hash: enough for verification and useless as an oracle when the secret is
+  a random 32-byte value, the only use in this project. Do not use this module
+  to split low-entropy secrets (such as a human password) without removing
+  the digest.
 
-module puro: without I/O, without state, only `secrets` for the aleatoriedad.
+Pure module: no I/O or state; only `secrets` is used for randomness.
 """
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ _DIGEST_LEN = 4          # bytes of sha256(secreto) incluidos in each share
 
 
 class ShamirError(ValueError):
-    """parameters invalidos, shares inconsistentes o reconstruccion fallida."""
+    """Invalid parameters, inconsistent shares, or failed reconstruction."""
 
 
 # Implementation note.
@@ -60,7 +60,7 @@ def _build_tables() -> tuple[List[int], List[int]]:
     for i in range(255):
         exp[i] = x
         log[x] = i
-        # Implementation note.
+        # Reduce with the AES irreducible polynomial.
         x2 = x << 1
         if x2 & 0x100:
             x2 ^= 0x11B
@@ -81,14 +81,14 @@ def _mul(a: int, b: int) -> int:
 
 def _div(a: int, b: int) -> int:
     if b == 0:
-        raise ZeroDivisionError("division by cero in GF(2^8)")
+        raise ZeroDivisionError("division by zero in GF(2^8)")
     if a == 0:
         return 0
     return _EXP[(_LOG[a] - _LOG[b]) % 255]
 
 
 def _eval_poly(coeffs: Sequence[int], x: int) -> int:
-    """Evalua the polinomio (coeffs[0] = term constante) in x  Horner."""
+    """Evaluate the polynomial (coeffs[0] is the constant term) using Horner."""
     result = 0
     for c in reversed(coeffs):
         result = _mul(result, x) ^ c
@@ -96,7 +96,7 @@ def _eval_poly(coeffs: Sequence[int], x: int) -> int:
 
 
 def _interpolate_at_zero(points: Sequence[tuple[int, int]]) -> int:
-    """Lagrange in x=0 over GF(2^8). points = [(x_i, y_i)] with x_i unicos."""
+    """Interpolate at x=0 over GF(2^8); points are [(x_i, y_i)] with unique x."""
     secret = 0
     for i, (xi, yi) in enumerate(points):
         num = 1
@@ -104,23 +104,21 @@ def _interpolate_at_zero(points: Sequence[tuple[int, int]]) -> int:
         for j, (xj, _) in enumerate(points):
             if i == j:
                 continue
-            num = _mul(num, xj)            # (0 - x_j) = x_j  (resta = XOR)
+            num = _mul(num, xj)            # (0 - x_j) = x_j (subtraction is XOR)
             den = _mul(den, xi ^ xj)       # (x_i - x_j)
         secret ^= _mul(yi, _div(num, den))
     return secret
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Share representation and serialization.
 
 @dataclass(frozen=True)
 class Share:
-    x: int                # 1..255  abscisa of the share
+    x: int                # 1..255, x-coordinate of the share
     threshold: int        # K
     total: int            # N
-    digest: str           # sha256(secreto)[:4] in hex  verificacion
-    data: bytes           # evaluaciones, a byte by byte of the secreto
+    digest: str           # sha256(secret)[:4] in hex, for verification
+    data: bytes           # polynomial evaluations, one per secret byte
 
     def serialize(self) -> str:
         payload = {
@@ -137,13 +135,13 @@ class Share:
         text = text.strip()
         if not text.startswith(SHARE_PREFIX):
             raise ShamirError(
-                f"Share inválido: falta el prefijo {SHARE_PREFIX!r}."
+                f"Invalid share: missing prefix {SHARE_PREFIX!r}."
             )
         try:
             blob = base64.urlsafe_b64decode(text[len(SHARE_PREFIX):])
             payload = json.loads(blob)
             if payload["v"] != 1:
-                raise ShamirError(f"Versión de share desconocida: {payload['v']}")
+                raise ShamirError(f"Unknown share version: {payload['v']}")
             share = Share(
                 x=int(payload["x"]),
                 threshold=int(payload["k"]),
@@ -154,9 +152,9 @@ class Share:
         except ShamirError:
             raise
         except Exception as exc:
-            raise ShamirError(f"Share ilegible o dañado: {exc}") from exc
+            raise ShamirError(f"Unreadable or damaged share: {exc}") from exc
         if not (1 <= share.x <= 255):
-            raise ShamirError(f"Share con x fuera de rango: {share.x}")
+            raise ShamirError(f"Share x-coordinate out of range: {share.x}")
         return share
 
 
@@ -164,29 +162,26 @@ def _secret_digest(secret: bytes) -> str:
     return hashlib.sha256(secret).digest()[:_DIGEST_LEN].hex()
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Secret splitting and reconstruction.
 
 def split_secret(secret: bytes, *, shares: int, threshold: int) -> List[Share]:
     """
-    Reparte `secret` in `shares` partes with umbral `threshold`.
+    Split `secret` into `shares` parts with the given `threshold`.
 
-    Restricciones: 1 <= threshold <= shares <= 255, secreto no empty.
-    each call usa polinomios frescos: repartir dos veces the same
-    secreto produce shares incompatibles between repartos (the digest the
-    distingue in combine).
+    Constraints: 1 <= threshold <= shares <= 255, and the secret is non-empty.
+    Each call uses fresh polynomials: splitting the same secret twice produces
+    incompatible shares, distinguished by the digest during combination.
     """
     if not secret:
-        raise ShamirError("the secreto no can be empty.")
+        raise ShamirError("The secret cannot be empty.")
     if not (1 <= threshold <= shares <= 255):
         raise ShamirError(
-            f"Parámetros inválidos: se requiere 1 <= threshold({threshold}) "
+            f"Invalid parameters: require 1 <= threshold({threshold}) "
             f"<= shares({shares}) <= 255."
         )
 
     digest = _secret_digest(secret)
-    # Implementation note.
+    # Each share evaluates every secret-byte polynomial at its x-coordinate.
     polys = [
         [byte] + [secrets.randbelow(256) for _ in range(threshold - 1)]
         for byte in secret
@@ -205,15 +200,15 @@ def split_secret(secret: bytes, *, shares: int, threshold: int) -> List[Share]:
 
 def combine_shares(shares: Sequence[Share | str]) -> bytes:
     """
-    Reconstruye the secreto a partir of >= threshold shares.
+    Reconstruct the secret from at least threshold shares.
 
-    Acepta objetos Share o strings serializados. Valida consistencia
-    (same reparto, same parameters, x unicos) and verifica the result
-    contra the digest  a mezcla of repartos o a share adulterado
-    produce ShamirError, nunca a secreto incorrect in silencio.
+    Accept Share objects or serialized strings. Validate consistency (same
+    split, same parameters, unique x-coordinates) and verify the result against
+    the digest. Mixing splits or tampering with a share raises ShamirError;
+    an incorrect secret is never returned silently.
     """
     if not shares:
-        raise ShamirError("No is proveyeron shares.")
+        raise ShamirError("No shares were provided.")
 
     parsed: List[Share] = [
         s if isinstance(s, Share) else Share.deserialize(s) for s in shares
@@ -225,18 +220,17 @@ def combine_shares(shares: Sequence[Share | str]) -> bytes:
             ref.threshold, ref.digest, len(ref.data)
         ):
             raise ShamirError(
-                "Shares inconsistentes  pertenecen a repartos distintos."
+                "Inconsistent shares — they belong to different splits."
             )
     xs = [s.x for s in parsed]
     if len(set(xs)) != len(xs):
-        raise ShamirError("Hay shares duplicados (same index x).")
+        raise ShamirError("Duplicate shares (same x-coordinate).")
     if len(parsed) < ref.threshold:
         raise ShamirError(
             f"Missing shares: {ref.threshold} are required, {len(parsed)} provided."
         )
 
-    # Implementation note.
-    # Implementation note.
+    # Any threshold-sized subset is sufficient for interpolation.
     subset = parsed[: ref.threshold]
     secret = bytes(
         _interpolate_at_zero([(s.x, s.data[i]) for s in subset])
@@ -245,7 +239,7 @@ def combine_shares(shares: Sequence[Share | str]) -> bytes:
 
     if _secret_digest(secret) != ref.digest:
         raise ShamirError(
-            "the reconstruccion no verifica: shares adulterados, mezclados "
-            "o insuficientes for este reparto."
+            "Reconstruction verification failed: shares are tampered, mixed, "
+            "or insufficient for this split."
         )
     return secret
