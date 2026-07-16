@@ -4,6 +4,8 @@ Continuum Studio is a local-first digital-legacy companion: a protected,
 navigable memory for the people who matter. It combines a polished web
 experience with a deterministic, auditable, encrypted core.
 
+Licensed under the [Apache License 2.0](LICENSE).
+
 ![Continuum Studio](https://img.shields.io/badge/status-hackathon%20prototype-173e3c)
 
 ## Try the product
