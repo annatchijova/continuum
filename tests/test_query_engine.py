@@ -1,7 +1,7 @@
 """
 tests/test_query_engine.py
 ===========================
-Tests of the motor of consultas.
+Tests for the query engine.
 """
 from fractions import Fraction
 
@@ -26,97 +26,93 @@ def engine(memory):
 def populated_engine(tmp_path):
     mem = MemoryField(tmp_path / "mem2.db")
     mem.store(
-        "contract of compraventa of the property ubicada in Av. Libertador 1234. "
-        "Precio: USD 150,000. Escritura firmada ante notario.",
+        "sales contract for the property located at 1234 Libertador Avenue. "
+        "Price: USD 150,000. Deed signed before a notary.",
         category=DocCategory.LEGAL,
         artifact="/docs/contrato_casa.pdf",
-        tags=["casa", "property"],
+        tags=["house", "property"],
     )
     mem.store(
-        "Suscripcion a Netflix - plan premium. is renueva automatically. "
-        "Cargo mensual: $25.99. Proxima factura: 15/08/2026.",
+        "Netflix subscription - premium plan. It renews automatically. "
+        "Monthly charge: $25.99. Next invoice: 2026-08-15.",
         category=DocCategory.SUBSCRIPTION,
         artifact="/docs/netflix_factura.pdf",
     )
     mem.store(
-        "Historial medico - diagnosis hipertension. Medicamento: Enalapril 10mg "
-        "each 24 horas. Control mensual in clinica.",
+        "Medical history - hypertension diagnosis. Medication: Enalapril 10mg "
+        "every 24 hours. Monthly checkup at the clinic.",
         category=DocCategory.MEDICAL,
         artifact="/docs/historial_clinico.pdf",
     )
     mem.store(
-        "Foto of cumpleanos of the abuela Maria, 2019.",
+        "Photo of grandmother Maria's birthday, 2019.",
         category=DocCategory.MEDIA,
         artifact="/fotos/cumple_abuela_2019.jpg",
-        tags=["abuela", "Maria", "cumpleanos"],
+        tags=["grandmother", "Maria", "birthday"],
     )
     return QueryEngine(mem)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Intent detection tests.
 
 def test_locate_intent(engine):
-    a = engine.analyze("where is the contract of the casa?")
+    a = engine.analyze("where is the contract for the house?")
     assert a.intent == QueryIntent.LOCATE
 
 
 def test_list_intent(engine):
-    a = engine.analyze("what suscripciones hay activas?")
+    a = engine.analyze("what subscriptions are active?")
     assert a.intent in (QueryIntent.LIST, QueryIntent.STATUS)
 
 
 def test_status_intent(engine):
-    a = engine.analyze("what suscripciones activas tengo?")
+    a = engine.analyze("what active subscriptions do I have?")
     assert a.intent == QueryIntent.STATUS
 
 
 def test_timeline_intent(engine):
-    a = engine.analyze("cuando fue firmado the contract?")
+    a = engine.analyze("when was the contract signed?")
     assert a.intent == QueryIntent.TIMELINE
 
 
 def test_person_intent(engine):
-    a = engine.analyze("fotos with the abuela")
+    a = engine.analyze("photos with the grandmother")
     assert a.intent == QueryIntent.PERSON
 
 
 def test_general_fallback(engine):
-    a = engine.analyze("algo completamente ambiguo")
+    a = engine.analyze("something completely ambiguous")
     assert a.intent == QueryIntent.GENERAL
 
 
 def test_category_detected_legal(engine):
-    a = engine.analyze("where is the testamento?")
+    a = engine.analyze("where is the will?")
     assert a.detected_category == DocCategory.LEGAL
 
 
 def test_category_detected_financial(engine):
-    a = engine.analyze("cuales are mis cuentas bancarias?")
+    a = engine.analyze("which bank accounts are mine?")
     assert a.detected_category == DocCategory.FINANCIAL
 
 
 def test_category_detected_subscription(engine):
-    a = engine.analyze("what suscripciones of Netflix tengo activas?")
+    a = engine.analyze("what active Netflix subscriptions do I have?")
     assert a.detected_category == DocCategory.SUBSCRIPTION
 
 
 def test_intent_scores_are_fractions(engine):
-    a = engine.analyze("where is the banco?")
+    a = engine.analyze("where is the bank?")
     for score in a.intent_scores.values():
         assert isinstance(score, Fraction)
     for score in a.category_scores.values():
         assert isinstance(score, Fraction)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Name extraction tests.
 
 def test_extract_name_spanish():
-    # Implementation note.
-    name = _extract_name("fotos of Maria Garcia")
+    # English names are extracted from English queries.
+    name = _extract_name("photos of Maria Garcia")
     assert name is not None
     assert "Maria" in name
 
@@ -126,24 +122,22 @@ def test_extract_name_none_if_no_match():
     assert name is None
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Query execution tests.
 
 def test_query_finds_legal_document(populated_engine):
-    response = populated_engine.query("where is the contract of the casa?")
+    response = populated_engine.query("where is the contract for the house?")
     assert response.signals_count > 0
     cats = [r.category for r in response.results]
     assert DocCategory.LEGAL in cats
 
 
 def test_query_finds_subscription(populated_engine):
-    response = populated_engine.query("what suscripciones activas tengo?")
+    response = populated_engine.query("what active subscriptions do I have?")
     assert response.signals_count > 0
 
 
 def test_query_finds_medical(populated_engine):
-    response = populated_engine.query("historial medico diagnosis")
+    response = populated_engine.query("medical history diagnosis")
     assert response.signals_count > 0
     cats = [r.category for r in response.results]
     assert DocCategory.MEDICAL in cats
@@ -163,16 +157,16 @@ def test_query_empty_memory_returns_no_results(engine):
 
 def test_llm_fn_called_when_provided(tmp_path):
     mem = MemoryField(tmp_path / "mem3.db")
-    mem.store("contract of hipoteca banco", category=DocCategory.FINANCIAL)
+    mem.store("mortgage bank contract", category=DocCategory.FINANCIAL)
     called_with = []
 
     def fake_llm(query, context):
         called_with.append((query, context))
-        return "Respuesta of the LLM"
+        return "LLM answer"
 
     eng = QueryEngine(mem, llm_fn=fake_llm)
-    response = eng.query("cual is mi hipoteca?")
-    assert response.llm_narration == "Respuesta of the LLM"
+    response = eng.query("what is my mortgage?")
+    assert response.llm_narration == "LLM answer"
     assert len(called_with) == 1
 
 
@@ -181,10 +175,10 @@ def test_llm_fn_failure_does_not_crash(tmp_path):
     mem.store("contract", category=DocCategory.LEGAL)
 
     def failing_llm(q, c):
-        raise RuntimeError("LLM no disponible")
+        raise RuntimeError("LLM unavailable")
 
     eng = QueryEngine(mem, llm_fn=failing_llm)
     response = eng.query("contract")
-    # Implementation note.
+    # LLM failures must not break deterministic answers.
     assert response.llm_narration is None
     assert response.signals_count > 0
