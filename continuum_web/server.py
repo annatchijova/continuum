@@ -237,6 +237,20 @@ class Handler(SimpleHTTPRequestHandler):
         # Keep a local demo quiet; errors still become API responses.
         return
 
+    def end_headers(self) -> None:
+        """Constrain the local browser surface as a defense in depth layer."""
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; connect-src 'self'; img-src 'self'; "
+            "script-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        )
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        super().end_headers()
+
     def do_GET(self) -> None:
         if urlparse(self.path).path == "/api/health":
             self._json({"ok": True, "product": "Continuum Studio"})

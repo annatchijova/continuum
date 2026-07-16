@@ -206,3 +206,12 @@ def test_unlocked_workspace_rejects_a_second_studio_session():
         first.lock()
         second.unlock("alex", "a-long-test-passphrase")
         second.lock()
+
+
+def test_local_server_sets_browser_security_headers():
+    source = (Path(__file__).parents[1] / "continuum_web/server.py").read_text()
+
+    assert '"Content-Security-Policy"' in source
+    assert "default-src 'self'" in source
+    assert '"X-Content-Type-Options", "nosniff"' in source
+    assert '"X-Frame-Options", "DENY"' in source
