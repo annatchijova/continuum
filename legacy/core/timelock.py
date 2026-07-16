@@ -1,55 +1,55 @@
 """
 legacy/core/timelock.py
 ========================
-Time-lock puzzle offline (RSW96 / LCS35)  the componente REALIZABLE of KL-011.
+Offline time-lock puzzle (RSW96 / LCS35): the REALIZABLE component of KL-011.
 
-closes a parte of KL-011 and NO another; the distincion is the corazon of este
-module and no must difuminarse:
+This closes one part of KL-011 and NOT the other; that distinction is the core
+of this module and must remain explicit:
 
-  it that PROVEE (piso of trabajo secuencial, criptografico and offline):
-    recover the secreto envuelto exige >= T cuadraturas modulares
-    SECUENCIALES. a sola chain of cuadraturas cannot paralelizar
-    (x_{i+1} = x_i^2 mod N depende of x_i), and without the factorizacion of N no
-    hay atajo. the factorizacion (and (N)) is descarta in the setup.
+  WHAT IT PROVIDES (a sequential, cryptographic, offline work floor):
+    Recovering the wrapped secret requires >= T SEQUENTIAL modular squarings.
+    A squaring chain cannot be parallelized (x_{i+1} = x_i^2 mod N depends on
+    x_i), and factoring N is the only shortcut. The factorization (and φ(N))
+    is discarded during setup.
 
-  it that **NO** PROVEE (reloj of pared):
-    NO is "is opens the 2030-01-01". is "cuesta ~T cuadraturas secuenciales".
-    the tiempo of pared = T / (cuadraturas-by-segundo of the that resuelve).
-    Hardware more fast (o a ASIC of squaring) resuelve proporcionalmente
-    before. by eso T is elige asumiendo the hardware of the ADVERSARIO, no the of the
-    heir. is a piso of cost, no a fecha.
+  WHAT IT DOES **NOT** PROVIDE (a wall clock):
+    It does NOT mean "it opens on 2030-01-01". It means "it costs ~T
+    sequential squarings." Wall-clock time = T / the solver's squarings per
+    second. Faster hardware (or a squaring ASIC) solves it proportionally
+    sooner. Therefore T is chosen against the ADVERSARY'S hardware, not the
+    heir's. This is a cost floor, not a date.
 
-Modelo of amenaza:
-  - the attacker can: leer the puzzle; correr computo arbitrario, incluso
-    masivamente paralelo; tener hardware more fast.
-  - the attacker NO can: paralelizar a chain of cuadraturas; factorizar N;
-    recover the atajo (N) (descartado).
+Threat model:
+  - The attacker can read the puzzle, run arbitrary computation (including
+    massive parallel computation), and use faster hardware.
+  - The attacker cannot parallelize the squaring chain or factor N to recover
+    the discarded shortcut φ(N).
 
-Uso previsto: a keyslot ADICIONAL e independiente of the vault (opt-in), for the
-escenario "without custodios disponibles, pero the heirs can open quemando
-computo". is compone with the passphrase and the custodia Shamir; no the replaces.
+Intended use: an ADDITIONAL independent vault keyslot (opt-in) for the
+scenario "no custodians are available, but heirs can open it by spending
+computation." It complements the passphrase and Shamir custody; it does not
+replace them.
 
-Construccion (RSW96):
-  N = pq (primos generados with Miller-Rabin);  = (p-1)(q-1).
-  a = database aleatoria in [2, N).
-  solucion = a^(2^T mod ) mod N        (atajo: O(log T), requires )
-           = a elevado to the cuadrado T veces mod N   (without atajo: T secuencial)
-  key = SHA-256(solucion)    AES-256-GCM envuelve the secreto.
-  is persisten N, T, a, nonce, ciphertext. is DESCARTAN p, q, , solucion.
+Construction (RSW96):
+  N = pq (primes generated with Miller-Rabin); φ = (p-1)(q-1).
+  a = random base in [2, N).
+  solution = a^(2^T mod φ) mod N       (shortcut: O(log T), requires φ)
+           = a squared T times modulo N (no shortcut: T sequential steps)
+  key = SHA-256(solution); AES-256-GCM wraps the secret.
+  Persist N, T, a, nonce, and ciphertext. Discard p, q, φ, and solution.
 
-Dependencias: stdlib + `cryptography` (AES-GCM). without red, without sympy.
+Dependencies: stdlib + `cryptography` (AES-GCM). No network or sympy.
 
-Trabajo futuro (reloj of pared criptografico  ver KL-011 in
-KNOWN_LIMITATIONS.md): este module da a piso of TRABAJO, no a fecha. a
-lock atado a fecha absoluta necesitaria a raiz of confianza temporal that
-hoy does not exist by design (offline, without terceros). Candidatos, each uno
-moviendo the frontera of confianza:
-  1. tlock over a beacon drand (timelock encryption)  dependencia of red
-     to the recover; the more probable if is acepta a red opcional.
-  2. autoridad of timestamp RFC 3161  a tercero of confianza.
-  3. TEE/HSM with reloj monotonico  dependencia of hardware.
-No is implementa no: adoptar a is a decision of producto over what
-confianza externa is acepta, no a TODO of code.
+Future work (cryptographic wall clock; see KL-011 in KNOWN_LIMITATIONS.md):
+this module provides a WORK floor, not a date. A lock tied to an absolute date
+would require a temporal trust root that does not exist today by design
+(offline, no third parties). Candidates, each moving the trust boundary:
+  1. tlock over a drand beacon (timelock encryption): network dependency during
+     recovery; the most likely option if an optional network is accepted.
+  2. RFC 3161 timestamp authority: a trusted third party.
+  3. TEE/HSM with a monotonic clock: hardware dependency.
+None is implemented; adopting one is a product decision about accepted
+external trust, not a code TODO.
 """
 from __future__ import annotations
 
@@ -74,12 +74,12 @@ _MAX_SQUARINGS = 10 ** 13
 
 
 class TimeLockError(ValueError):
-    """parameters invalidos, puzzle corrupto o solucion incorrect."""
+    """Invalid parameters, corrupted puzzle, or incorrect solution."""
 
 
 def _require_crypto() -> None:
     if not _CRYPTO_AVAILABLE:
-        raise RuntimeError("the paquete 'cryptography' is required for the time-lock.")
+        raise RuntimeError("The 'cryptography' package is required for the time-lock.")
 
 
 # Implementation note.
@@ -115,7 +115,7 @@ def _is_probable_prime(n: int, rounds: int = 40) -> bool:
 
 
 def _gen_prime(bits: int) -> int:
-    """Primo probable of exactamente `bits` bits (MSB and LSB in 1)."""
+    """Generate a probable prime with exactly `bits` bits (MSB and LSB set)."""
     while True:
         cand = secrets.randbits(bits) | (1 << (bits - 1)) | 1
         if _is_probable_prime(cand):
@@ -141,23 +141,23 @@ def create_puzzle(
     modulus_bits: int = 2048,
 ) -> Dict[str, Any]:
     """
-    Envuelve `secret` in a time-lock puzzle: only is recupera tras
-    `squarings` cuadraturas secuenciales (o with the factorizacion, that is
-    descarta). returns a dict serializable. Setup O(log T): instantaneo.
+    Wrap `secret` in a time-lock puzzle: it can be recovered only after
+    `squarings` sequential squarings (or with the discarded factorization).
+    Return a serializable dictionary. Setup is O(log T) and effectively instant.
 
-    Bounds (fail-closed): secret no empty; 1 <= squarings <= _MAX_SQUARINGS;
+    Bounds (fail-closed): secret is non-empty; 1 <= squarings <= _MAX_SQUARINGS;
     modulus_bits >= 1024.
     """
     _require_crypto()
     if not secret:
-        raise TimeLockError("the secreto no can be empty.")
+        raise TimeLockError("The secret cannot be empty.")
     if not (1 <= squarings <= _MAX_SQUARINGS):
         raise TimeLockError(
-            f"squarings fuera de rango: 1 <= T <= {_MAX_SQUARINGS} (recibido {squarings})."
+            f"Squarings out of range: 1 <= T <= {_MAX_SQUARINGS} (received {squarings})."
         )
     if modulus_bits < _MIN_MODULUS_BITS:
         raise TimeLockError(
-            f"modulus_bits debe ser >= {_MIN_MODULUS_BITS} (recibido {modulus_bits})."
+            f"modulus_bits must be >= {_MIN_MODULUS_BITS} (received {modulus_bits})."
         )
 
     p = _gen_prime(modulus_bits // 2)
@@ -195,17 +195,18 @@ def solve_puzzle(
     progress_every: int = 1_000_000,
 ) -> bytes:
     """
-    Resuelve the puzzle: T cuadraturas secuenciales  key  decrypts the
-    secreto. slow by design (ese is the punto). `progress(done, total)` is
-    llama each `progress_every` cuadraturas for UX.
+    Solve the puzzle: T sequential squarings derive the key that decrypts the
+    secret. Slow by design. `progress(done, total)` is called every
+    `progress_every` squarings for UX.
 
-    Lanza TimeLockError if the puzzle is corrupto o the secreto no autentica
-    (fail-closed: N/a/T tampered producen another solucion  GCM falla).
+    Raise TimeLockError if the puzzle is corrupted or the secret fails
+    authentication (fail-closed: tampered N/a/T values produce another
+    solution and GCM fails).
     """
     _require_crypto()
     try:
         if puzzle.get("version") != PUZZLE_VERSION:
-            raise TimeLockError(f"Versión de puzzle desconocida: {puzzle.get('version')}")
+            raise TimeLockError(f"Unknown puzzle version: {puzzle.get('version')}")
         modulus_bits = int(puzzle["modulus_bits"])
         t = int(puzzle["squarings"])
         n = int(puzzle["n"], 16)
@@ -213,10 +214,10 @@ def solve_puzzle(
         nonce = bytes.fromhex(puzzle["nonce"])
         ciphertext = bytes.fromhex(puzzle["ciphertext"])
     except (KeyError, ValueError, TypeError) as exc:
-        raise TimeLockError(f"Puzzle ilegible o dañado: {exc}") from exc
+        raise TimeLockError(f"Unreadable or damaged puzzle: {exc}") from exc
 
     if not (1 <= t <= _MAX_SQUARINGS):
-        raise TimeLockError("squarings of the puzzle fuera of rango.")
+        raise TimeLockError("Puzzle squarings are out of range.")
 
     for i in range(t):
         x = x * x % n
@@ -228,7 +229,7 @@ def solve_puzzle(
         return AESGCM(key).decrypt(nonce, ciphertext, _AAD)
     except Exception as exc:
         raise TimeLockError(
-            "the puzzle no autentica: parameters tampered o corrupcion."
+            "Puzzle authentication failed: parameters were tampered with or corrupted."
         ) from exc
 
 
@@ -238,10 +239,9 @@ def solve_puzzle(
 
 def calibrate(*, seconds: float = 1.0, modulus_bits: int = 2048) -> int:
     """
-    Mide cuantas cuadraturas by segundo does ESTA maquina with este size of
-    module. Sirve for traducir 'dias' a T  recordando that the adversario
-    can be more fast, asi that T should multiplicarse by the margen of
-    hardware that uno quiera cubrir.
+    Measure this machine's squarings per second at the selected modulus size.
+    This translates 'days' into T, remembering that an adversary may be faster;
+    T should therefore be multiplied by the hardware margin to cover.
     """
     import time
     n = _gen_prime(modulus_bits // 2) * _gen_prime(modulus_bits // 2)
@@ -258,7 +258,7 @@ def calibrate(*, seconds: float = 1.0, modulus_bits: int = 2048) -> int:
 
 
 def estimate_squarings(days: float, rate_per_second: int) -> int:
-    """T  dias  rate. Piso of cuadraturas for ese tiempo A ESE ritmo."""
+    """Return T for `days` at `rate_per_second`, a work floor at that rate."""
     if days <= 0 or rate_per_second <= 0:
-        raise TimeLockError("days and rate deben be > 0.")
+        raise TimeLockError("days and rate_per_second must be > 0.")
     return min(int(days * 86_400 * rate_per_second), _MAX_SQUARINGS)
