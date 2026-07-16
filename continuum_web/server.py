@@ -11,6 +11,7 @@ import json
 import os
 import secrets
 import shutil
+import threading
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -19,6 +20,7 @@ from urllib.parse import urlparse
 
 from legacy.agent.memory_agent import LegacyAgent
 from legacy.agent.query_engine import QueryEngine
+from legacy.core.lockfile import AgentLock
 from continuum_web import narrator
 
 
@@ -37,28 +39,49 @@ class Studio:
         self.owner_id = "owner"
         self.passphrase: str | None = None
         self.role = "owner"
+        self._mutex = threading.RLock()
+        self._workspace_lock: AgentLock | None = None
 
     def _new_agent(self, owner_id: str) -> LegacyAgent:
         self.owner_id = owner_id.strip() or "owner"
         return LegacyAgent(self.workspace, self.owner_id)
 
+    def _acquire_workspace(self) -> None:
+        if self._workspace_lock is None:
+            self._workspace_lock = AgentLock(self.workspace).acquire()
+
+    def _release_workspace(self) -> None:
+        if self._workspace_lock is not None:
+            self._workspace_lock.release()
+            self._workspace_lock = None
+
     def create(self, owner_id: str, passphrase: str) -> dict[str, Any]:
         if len(passphrase) < 10:
             raise ValueError("Use a passphrase with at least 10 characters.")
-        agent = self._new_agent(owner_id)
-        if agent._vault.exists():
-            raise ValueError("A vault already exists here. Unlock it instead.")
-        agent.initialize(passphrase)
-        self.agent, self.passphrase = agent, passphrase
-        self.role = "owner"
-        return self.snapshot()
+        self._acquire_workspace()
+        try:
+            agent = self._new_agent(owner_id)
+            if agent._vault.exists():
+                raise ValueError("A vault already exists here. Unlock it instead.")
+            agent.initialize(passphrase)
+            self.agent, self.passphrase = agent, passphrase
+            self.role = "owner"
+            return self.snapshot()
+        except Exception:
+            self._release_workspace()
+            raise
 
     def unlock(self, owner_id: str, passphrase: str) -> dict[str, Any]:
-        agent = self._new_agent(owner_id)
-        agent.open_owner(passphrase)
-        self.agent, self.passphrase = agent, passphrase
-        self.role = "owner"
-        return self.snapshot()
+        self._acquire_workspace()
+        try:
+            agent = self._new_agent(owner_id)
+            agent.open_owner(passphrase)
+            self.agent, self.passphrase = agent, passphrase
+            self.role = "owner"
+            return self.snapshot()
+        except Exception:
+            self._release_workspace()
+            raise
 
     def unlock_heir(
         self, heir_id: str, passphrase: str, heir_key: str | None = None
@@ -66,16 +89,22 @@ class Studio:
         heir_id = heir_id.strip()
         if not heir_id:
             raise ValueError("Enter the heir identifier provided by the owner.")
-        agent = self._new_agent(heir_id)
-        if not agent.open_heir(heir_id, passphrase, heir_key=heir_key or None):
-            raise ValueError("Heir access was not granted by the vault policy.")
-        self.agent, self.passphrase, self.role = agent, passphrase, "heir"
-        return self.snapshot()
+        self._acquire_workspace()
+        try:
+            agent = self._new_agent(heir_id)
+            if not agent.open_heir(heir_id, passphrase, heir_key=heir_key or None):
+                raise ValueError("Heir access was not granted by the vault policy.")
+            self.agent, self.passphrase, self.role = agent, passphrase, "heir"
+            return self.snapshot()
+        except Exception:
+            self._release_workspace()
+            raise
 
     def lock(self) -> None:
         if self.agent is not None and self.passphrase is not None:
             self.agent.lock(self.passphrase)
         self.agent, self.passphrase = None, None
+        self._release_workspace()
 
     def require_open(self) -> LegacyAgent:
         if self.agent is None:
@@ -258,7 +287,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _run(self, action) -> None:
         try:
-            self._json(action(self._read_json() if self.command == "POST" else {}))
+            with self.studio._mutex:
+                self._json(action(self._read_json() if self.command == "POST" else {}))
         except (ValueError, json.JSONDecodeError) as exc:
             self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
         except Exception:

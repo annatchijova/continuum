@@ -7,6 +7,7 @@ import pytest
 
 from continuum_web.server import Studio
 from continuum_web import server
+from legacy.core.lockfile import LockHeldError
 from continuum_web import narrator
 
 
@@ -190,3 +191,18 @@ def test_http_500_response_does_not_include_exception_text():
 
     assert '"The protected operation could not complete."' in source
     assert 'could not complete: {exc}' not in source
+
+
+def test_unlocked_workspace_rejects_a_second_studio_session():
+    with TemporaryDirectory() as directory:
+        workspace = Path(directory) / "legacy"
+        first = Studio(workspace)
+        first.create("alex", "a-long-test-passphrase")
+
+        second = Studio(workspace)
+        with pytest.raises(LockHeldError):
+            second.unlock("alex", "a-long-test-passphrase")
+
+        first.lock()
+        second.unlock("alex", "a-long-test-passphrase")
+        second.lock()
