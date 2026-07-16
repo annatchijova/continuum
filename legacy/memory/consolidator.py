@@ -1,22 +1,22 @@
 """
 legacy/memory/consolidator.py
 ==============================
-Consolidacion nocturna of the field of memory.
+Nightly consolidation of the memory field.
 
-Inspirado in raven-memory sleep_consolidator.py.
+Inspired by raven-memory sleep_consolidator.py.
 
-what does:
-  1. Identifica memories duplicadas by similitud of content
-     (Jaccard over tokens, without embeddings).
-  2. Fusiona duplicados: the REINFORCED gana; if hay empate, the more
-     reciente gana. the content more largo is preserves.
-  3. Pruna sinapsis muertas (weight  0).
-  4. updates scores by recency decay.
-  5. Promueve a REINFORCED memories with high recall_count.
-  6. Degrada a FORGOTTEN memories without acceso in >threshold dias.
+What it does:
+  1. Identifies duplicate memories by content similarity (Jaccard over tokens,
+     without embeddings).
+  2. Merges duplicates: REINFORCED wins; on a tie, the more recent wins. The
+     longer content is preserved.
+  3. Prunes dead synapses (weight <= 0).
+  4. Updates scores through recency decay.
+  5. Promotes memories with high recall_count to REINFORCED.
+  6. Degrades memories without access for more than the threshold to FORGOTTEN.
 
-the consolidador no borra nada  FORGOTTEN is a state, no a
-eliminacion. the audit trail preserves toda the historia.
+The consolidator never deletes anything: FORGOTTEN is a state, not deletion.
+The audit trail preserves the complete history.
 
 Uso:
     from legacy.memory.consolidator import Consolidator
@@ -75,12 +75,12 @@ def _jaccard(a: Set[str], b: Set[str]) -> float:
 
 class Consolidator:
     """
-    Consolidador of memory  opera over the SQLite of the MemoryField.
+    Memory consolidator operating on the MemoryField SQLite database.
 
-    similarity_threshold : Jaccard minimo for considerar duplicado (0.85).
-    reinforce_threshold  : recall_count minimo for promover a REINFORCED.
-    forget_after_days    : dias without acceso for degradar a FORGOTTEN.
-    score_decay          : factor multiplicativo of decay diario.
+    similarity_threshold : minimum Jaccard similarity for duplicates (0.85).
+    reinforce_threshold  : minimum recall_count for REINFORCED promotion.
+    forget_after_days    : days without access before FORGOTTEN degradation.
+    score_decay          : daily multiplicative decay factor.
     """
 
     def __init__(
@@ -127,9 +127,7 @@ class Consolidator:
         report.finished_at = datetime.now(timezone.utc).isoformat()
         return report
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Duplicate merging.
 
     def _merge_duplicates(self) -> int:
         conn = self._connect()
@@ -146,16 +144,14 @@ class Consolidator:
 
         for row in rows:
             mid = row["memory_id"]
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
+            # Decrypt through MemoryField so encrypted rows remain protected.
             content = self._memory._dec(mid, "content", row["content"])
             if content is None:
                 continue
             tokens = _tokenize(content)
             state = row["state"]
 
-            # Implementation note.
+            # Find the closest previously seen memory.
             best_sim = 0.0
             best_idx = -1
             for i, (_, seen_tokens, _) in enumerate(seen):
@@ -165,7 +161,7 @@ class Consolidator:
                     best_idx = i
 
             if best_sim >= self._sim_threshold and best_idx >= 0:
-                # Implementation note.
+                # Merge into the winner and retain the combined token set.
                 orig_id, orig_tokens, orig_state = seen[best_idx]
                 winner_id, loser_id = self._resolve_winner(
                     conn_fn=self._connect,
@@ -182,7 +178,7 @@ class Consolidator:
         return merged
 
     def _resolve_winner(self, conn_fn, a_id: str, b_id: str) -> Tuple[str, str]:
-        """the REINFORCED gana. if empate, the more reciente."""
+        """REINFORCED wins; on a tie, choose the more recent memory."""
         conn = conn_fn()
         try:
             a = conn.execute(
@@ -203,16 +199,16 @@ class Consolidator:
             return a_id, b_id
         if b["state"] == MemoryState.REINFORCED.value:
             return b_id, a_id
-        # Implementation note.
+        # Tie-break by last access time.
         if a["last_access"] >= b["last_access"]:
             return a_id, b_id
         return b_id, a_id
 
     def _merge_pair(self, winner_id: str, loser_id: str) -> None:
-        """Marca the perdedor as FORGOTTEN and transfiere sus synapses."""
+        """Mark the loser FORGOTTEN and transfer its synapses."""
         conn = self._connect()
         try:
-            # Implementation note.
+            # Transfer outgoing and incoming links to the winner.
             conn.execute(
                 """INSERT OR IGNORE INTO synaptic_links (src_id, dst_id, weight, link_type)
                    SELECT ?, dst_id, weight, link_type
@@ -225,10 +221,10 @@ class Consolidator:
                    FROM synaptic_links WHERE dst_id=? AND src_id != ?""",
                 (winner_id, loser_id, winner_id),
             )
-            # Implementation note.
+            # Remove all links belonging to the loser.
             conn.execute("DELETE FROM synaptic_links WHERE src_id=? OR dst_id=?",
                          (loser_id, loser_id))
-            # Implementation note.
+            # Preserve the loser as history, but exclude it from retrieval.
             conn.execute(
                 "UPDATE memories SET state=? WHERE memory_id=?",
                 (MemoryState.FORGOTTEN.value, loser_id),
@@ -237,9 +233,7 @@ class Consolidator:
         finally:
             conn.close()
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Synapse pruning.
 
     def _prune_synapses(self) -> int:
         conn = self._connect()
@@ -254,9 +248,7 @@ class Consolidator:
             conn.close()
         return pruned
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Promotion by recall frequency.
 
     def _promote_frequent(self) -> int:
         conn = self._connect()
@@ -276,9 +268,7 @@ class Consolidator:
             conn.close()
         return promoted
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Degradation by inactivity.
 
     def _degrade_stale(self) -> int:
         cutoff = time.time() - self._forget_after_seconds
@@ -299,9 +289,7 @@ class Consolidator:
             conn.close()
         return degraded
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Score decay.
 
     def _apply_score_decay(self) -> int:
         conn = self._connect()
