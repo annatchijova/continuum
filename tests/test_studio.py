@@ -188,6 +188,13 @@ def test_answer_renderer_treats_narration_and_sources_as_text():
     assert "OPTIONAL CHATGPT NARRATION — NOT A SOURCE" in script
 
 
+def test_ui_keeps_core_result_visible_when_narration_is_unavailable():
+    script = (Path(__file__).parents[1] / "continuum_web/static/app.js").read_text()
+
+    assert "renderAnswer(answer, result); if (result.narration_error)" in script
+    assert "The deterministic result remains unchanged." in script
+
+
 def test_http_500_response_does_not_include_exception_text():
     source = (Path(__file__).parents[1] / "continuum_web/server.py").read_text()
 
