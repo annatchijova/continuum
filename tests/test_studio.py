@@ -215,3 +215,18 @@ def test_local_server_sets_browser_security_headers():
     assert "default-src 'self'" in source
     assert '"X-Content-Type-Options", "nosniff"' in source
     assert '"X-Frame-Options", "DENY"' in source
+
+
+def test_open_session_cannot_be_replaced_without_locking_first():
+    with TemporaryDirectory() as directory:
+        workspace = Path(directory) / "legacy"
+        studio = Studio(workspace)
+        studio.create("alex", "a-long-test-passphrase")
+
+        with pytest.raises(ValueError, match="already open"):
+            studio.unlock("alex", "a-long-test-passphrase")
+
+        another = Studio(workspace)
+        with pytest.raises(LockHeldError):
+            another.unlock("alex", "a-long-test-passphrase")
+        studio.lock()

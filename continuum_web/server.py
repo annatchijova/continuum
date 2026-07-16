@@ -55,9 +55,14 @@ class Studio:
             self._workspace_lock.release()
             self._workspace_lock = None
 
+    def _require_no_open_session(self) -> None:
+        if self.agent is not None:
+            raise ValueError("A workspace is already open. Lock it before opening another.")
+
     def create(self, owner_id: str, passphrase: str) -> dict[str, Any]:
         if len(passphrase) < 10:
             raise ValueError("Use a passphrase with at least 10 characters.")
+        self._require_no_open_session()
         self._acquire_workspace()
         try:
             agent = self._new_agent(owner_id)
@@ -72,6 +77,7 @@ class Studio:
             raise
 
     def unlock(self, owner_id: str, passphrase: str) -> dict[str, Any]:
+        self._require_no_open_session()
         self._acquire_workspace()
         try:
             agent = self._new_agent(owner_id)
@@ -89,6 +95,7 @@ class Studio:
         heir_id = heir_id.strip()
         if not heir_id:
             raise ValueError("Enter the heir identifier provided by the owner.")
+        self._require_no_open_session()
         self._acquire_workspace()
         try:
             agent = self._new_agent(heir_id)
