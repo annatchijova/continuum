@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from continuum_web.server import Studio
+from continuum_web.server import Studio, _decode_json_object
 from continuum_web import server
 from legacy.core.lockfile import LockHeldError
 from continuum_web import narrator
@@ -229,4 +229,20 @@ def test_open_session_cannot_be_replaced_without_locking_first():
         another = Studio(workspace)
         with pytest.raises(LockHeldError):
             another.unlock("alex", "a-long-test-passphrase")
+        studio.lock()
+
+
+def test_api_json_body_must_be_an_object():
+    assert _decode_json_object(b'{"title":"note"}') == {"title": "note"}
+    with pytest.raises(ValueError, match="JSON object"):
+        _decode_json_object(b"[]")
+
+
+def test_capture_rejects_non_text_tags():
+    with TemporaryDirectory() as directory:
+        studio = Studio(Path(directory) / "legacy")
+        studio.create("alex", "a-long-test-passphrase")
+
+        with pytest.raises(ValueError, match="Tags must"):
+            studio.capture("A note", "Some content", [1])
         studio.lock()

@@ -27,6 +27,15 @@ from continuum_web import narrator
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 DEFAULT_WORKSPACE = Path(os.environ.get("CONTINUUM_DATA_DIR", ".continuum"))
+MAX_JSON_BODY_BYTES = 1_000_000
+
+
+def _decode_json_object(raw: bytes) -> dict[str, Any]:
+    """Accept only a JSON object as an API request body."""
+    value = json.loads(raw or b"{}")
+    if not isinstance(value, dict):
+        raise ValueError("Request body must be a JSON object.")
+    return value
 
 
 class Studio:
@@ -124,8 +133,13 @@ class Studio:
         agent = self.require_open()
         if self.role != "owner":
             raise ValueError("Heir view is read-only.")
+        if not isinstance(title, str) or not isinstance(body, str):
+            raise ValueError("Memory title and content must be text.")
+        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+            raise ValueError("Tags must be a list of text values.")
         title = title.strip() or "Untitled memory"
         body = body.strip()
+        tags = [tag.strip() for tag in tags if tag.strip()]
         if not body:
             raise ValueError("Add a memory before saving it.")
         inbox = self.workspace / "inbox"
@@ -301,10 +315,13 @@ class Handler(SimpleHTTPRequestHandler):
         return {"locked": True}
 
     def _read_json(self) -> dict[str, Any]:
-        size = int(self.headers.get("Content-Length", "0"))
-        if size > 1_000_000:
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+        except ValueError as exc:
+            raise ValueError("Content-Length must be a number.") from exc
+        if not 0 <= size <= MAX_JSON_BODY_BYTES:
             raise ValueError("Request is too large.")
-        return json.loads(self.rfile.read(size) or b"{}")
+        return _decode_json_object(self.rfile.read(size))
 
     def _run(self, action) -> None:
         try:
