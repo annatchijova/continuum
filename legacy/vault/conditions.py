@@ -1,19 +1,18 @@
 """
 legacy/vault/conditions.py
 ===========================
-conditions of activacion of the vault.
+Vault activation conditions.
 
-the usuario define what must ocurrir for that the heirs
-puedan desbloquear the legado. the conditions are AND by default
-(all deben cumplirse). is can configurar OR explicito.
+The owner defines what must happen before heirs can unlock the legacy.
+Conditions use AND by default (all must be satisfied); explicit OR is supported.
 
-Tipos of condition:
-  InactivityCondition   N dias without actividad of the owner
-  DateCondition         fecha/hora UTC especifica
-  HeirKeyCondition      heir presenta key secreta pre-registrada
-  ManualCondition       owner marca manualmente "activar"
+Condition types:
+  InactivityCondition   N days without owner activity
+  DateCondition         specific UTC date/time
+  HeirKeyCondition      heir presents a pre-registered secret key
+  ManualCondition       owner manually marks the vault "active"
 
-all the conditions are serializables a JSON for persistencia encrypted.
+All conditions are JSON-serializable for encrypted persistence.
 """
 from __future__ import annotations
 
@@ -39,9 +38,9 @@ class ConditionOperator(str, Enum):
 
 @dataclass
 class InactivityCondition:
-    """Vault is activa if the owner no registra actividad in N dias."""
+    """The vault activates if the owner records no activity for N days."""
     days: int
-    last_activity_iso: str  # ISO 8601 UTC  is updates in each actividad
+    last_activity_iso: str  # ISO 8601 UTC; updated on every activity.
 
     type: str = ConditionType.INACTIVITY
 
@@ -62,7 +61,7 @@ class InactivityCondition:
 
 @dataclass
 class DateCondition:
-    """Vault is activa in o after of a fecha UTC especifica."""
+    """The vault activates on or after a specific UTC date."""
     unlock_after_iso: str   # ISO 8601 UTC
 
     type: str = ConditionType.DATE
@@ -81,12 +80,12 @@ class DateCondition:
 @dataclass
 class HeirKeyCondition:
     """
-    Vault is activa when a heir presenta the key secreta pre-registrada.
-    the key nunca is almacena in plaintext  only su hash PBKDF2.
+    The vault activates when an heir presents the pre-registered secret key.
+    The key is never stored in plaintext; only its PBKDF2 hash is stored.
     """
-    key_hash: str       # PBKDF2-SHA256 hex of the key
-    salt_hex: str       # hex  required for verificar
-    heir_id: str        # identificador of the heir autorizado
+    key_hash: str       # PBKDF2-SHA256 hex digest of the key.
+    salt_hex: str       # Hex salt required for verification.
+    heir_id: str        # Authorized heir identifier.
     iterations: int = 260_000
 
     type: str = ConditionType.HEIR_KEY
@@ -99,7 +98,7 @@ class HeirKeyCondition:
             salt,
             self.iterations,
         ).hex()
-        # Implementation note.
+        # Constant-time comparison prevents timing leaks.
         return secrets.compare_digest(candidate, self.key_hash)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -113,7 +112,7 @@ class HeirKeyCondition:
 
     @staticmethod
     def create(heir_id: str, secret_key: str, iterations: int = 260_000) -> "HeirKeyCondition":
-        """generates the condition a partir of the key in plaintext (only to the record)."""
+        """Create a condition from a plaintext key (only during registration)."""
         salt = secrets.token_bytes(32)
         key_hash = hashlib.pbkdf2_hmac(
             "sha256",
@@ -131,7 +130,7 @@ class HeirKeyCondition:
 
 @dataclass
 class ManualCondition:
-    """the owner activa the vault manualmente (testing, pre-mortem)."""
+    """The owner manually activates the vault (testing or pre-mortem)."""
     activated: bool = False
 
     type: str = ConditionType.MANUAL
@@ -162,16 +161,16 @@ def condition_from_dict(d: Dict[str, Any]) -> AnyCondition:
         )
     if t == ConditionType.MANUAL:
         return ManualCondition(activated=d.get("activated", False))
-    raise ValueError(f"Tipo de condición desconocido: {t!r}")
+    raise ValueError(f"Unknown condition type: {t!r}")
 
 
 @dataclass
 class AccessPolicy:
     """
-    Politica of acceso: lista of conditions + operador AND/OR.
+    Access policy: a list of conditions plus an AND/OR operator.
 
-    evaluate() returns True when the politica is satisface.
-    for HeirKeyCondition, pasar heir_key=<key presentada>.
+    evaluate() returns True when the policy is satisfied.
+    For HeirKeyCondition, pass heir_key=<presented key>.
     """
     conditions: List[AnyCondition]
     operator: ConditionOperator = ConditionOperator.AND
