@@ -227,6 +227,40 @@ def test_new_studio_workspace_reports_absent_heir_policy_without_adding_one():
         assert dashboard["heir_policy_configured"] is False
 
 
+def test_new_studio_workspace_can_set_an_inactivity_heir_policy():
+    with TemporaryDirectory() as directory:
+        workspace = Path(directory) / "legacy"
+        owner = Studio(workspace)
+        dashboard = owner.create(
+            "alex", "a-long-test-passphrase", inactivity_days=90
+        )
+
+        assert dashboard["heir_policy_configured"] is True
+        owner.lock()
+
+        heir = Studio(workspace)
+        with pytest.raises(ValueError, match="not granted"):
+            heir.unlock_heir("maria", "a-long-test-passphrase")
+
+
+def test_studio_rejects_invalid_inactivity_policy_duration():
+    with TemporaryDirectory() as directory:
+        studio = Studio(Path(directory) / "legacy")
+
+        with pytest.raises(ValueError, match="Inactivity protection"):
+            studio.create("alex", "a-long-test-passphrase", inactivity_days=0)
+
+
+def test_ui_requires_an_explicit_heir_release_choice_for_new_workspaces():
+    html = (Path(__file__).parents[1] / "continuum_web/static/index.html").read_text()
+    script = (Path(__file__).parents[1] / "continuum_web/static/app.js").read_text()
+
+    assert 'id="inactivityDays"' in html
+    assert "Choose before creating" in html
+    assert 'value="none">No policy — not recommended' in html
+    assert 'inactivity_days: policyChoice === "none" ? null : Number(policyChoice)' in script
+
+
 def test_capture_rejects_text_larger_than_core_ingestion_limit():
     with TemporaryDirectory() as directory:
         studio = Studio(Path(directory) / "legacy")

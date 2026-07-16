@@ -22,6 +22,9 @@ available below for direct vault management.
 
 Studio has separate owner and heir entry points. Heir access delegates to the
 existing policy-aware core path and is intentionally read-only in the UI.
+When creating a Studio workspace, the owner must explicitly choose an heir
+release condition: an inactivity period or the deliberately marked no-policy
+option. The UI never silently assigns a release policy.
 Owners can capture a note or import a local `.txt`, `.md`, `.csv`, or `.json`
 file after reviewing its text in the browser. Binary and PDF ingestion remains
 in the existing CLI path.

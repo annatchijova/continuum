@@ -41,6 +41,7 @@
         <form id="workspaceForm">
           <label>Owner name / heir ID<input id="owner" value="Alex Morgan" autocomplete="name" required /></label>
           <label>Passphrase<input id="passphrase" type="password" minlength="10" placeholder="At least 10 characters" required /></label>
+          <label>Heir release condition<select id="inactivityDays" style="font:inherit;border-radius:10px;border:1px solid #cbd7d0;background:rgba(255,255,255,.78);padding:11px 12px;color:var(--ink);outline-color:#74a58e" required><option value="" selected disabled>Choose before creating</option><option value="90">After 90 days without owner activity</option><option value="180">After 180 days without owner activity</option><option value="365">After 365 days without owner activity</option><option value="none">No policy — not recommended</option></select></label>
           <label class="heir-key">Heir key <small>only if the owner gave you one</small><input id="heirKey" type="password" placeholder="Optional recovery key" /></label>
           <div class="form-actions"><button class="primary" type="submit">Create protected workspace <span>→</span></button><button class="text-button" type="button" id="unlockButton">Open as owner</button><button class="text-button" type="button" id="heirButton">Open as heir</button></div>
           <p class="form-note" id="formNote"></p>

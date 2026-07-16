@@ -12,6 +12,7 @@ import os
 import secrets
 import shutil
 import threading
+from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,6 +22,7 @@ from urllib.parse import urlparse
 from legacy.agent.memory_agent import LegacyAgent
 from legacy.agent.query_engine import QueryEngine
 from legacy.core.lockfile import AgentLock
+from legacy.vault.conditions import AccessPolicy, InactivityCondition
 from continuum_web import narrator
 
 
@@ -69,16 +71,34 @@ class Studio:
         if self.agent is not None:
             raise ValueError("A workspace is already open. Lock it before opening another.")
 
-    def create(self, owner_id: str, passphrase: str) -> dict[str, Any]:
+    def create(
+        self, owner_id: str, passphrase: str, *, inactivity_days: int | None = None
+    ) -> dict[str, Any]:
         if len(passphrase) < 10:
             raise ValueError("Use a passphrase with at least 10 characters.")
+        if inactivity_days is not None and (
+            isinstance(inactivity_days, bool)
+            or not isinstance(inactivity_days, int)
+            or not 1 <= inactivity_days <= 36_500
+        ):
+            raise ValueError("Inactivity protection must be between 1 and 36,500 days.")
         self._require_no_open_session()
         self._acquire_workspace()
         try:
             agent = self._new_agent(owner_id)
             if agent._vault.exists():
                 raise ValueError("A vault already exists here. Unlock it instead.")
-            agent.initialize(passphrase)
+            policy = None
+            if inactivity_days is not None:
+                policy = AccessPolicy(
+                    [
+                        InactivityCondition(
+                            days=inactivity_days,
+                            last_activity_iso=datetime.now(timezone.utc).isoformat(),
+                        )
+                    ]
+                )
+            agent.initialize(passphrase, policy=policy)
             # Studio workspaces opt into the core's database-at-rest encryption
             # before accepting their first captured memory.
             agent.encrypt_database(passphrase)
@@ -237,7 +257,7 @@ class Studio:
         if self.workspace.exists():
             shutil.rmtree(self.workspace)
         self.workspace.mkdir(parents=True)
-        self.create("Alex Morgan", "continuum-demo")
+        self.create("Alex Morgan", "continuum-demo", inactivity_days=90)
         memories = [
             ("Apartment deed", "Property deed for the apartment at 42 Cedar Street. The notary is Elena Ruiz and the original is in the blue archival folder.", ["home", "urgent"]),
             ("Emergency care plan", "Medical history: allergy to penicillin. Primary physician: Dr. Lee. Keep the current medication list with this note.", ["health"]),
@@ -300,7 +320,11 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:
         route = urlparse(self.path).path
         routes = {
-            "/api/create": lambda body: self.studio.create(body.get("owner_id", "owner"), body.get("passphrase", "")),
+            "/api/create": lambda body: self.studio.create(
+                body.get("owner_id", "owner"),
+                body.get("passphrase", ""),
+                inactivity_days=body.get("inactivity_days"),
+            ),
             "/api/unlock": lambda body: self.studio.unlock(body.get("owner_id", "owner"), body.get("passphrase", "")),
             "/api/unlock-heir": lambda body: self.studio.unlock_heir(
                 body.get("heir_id", ""),
