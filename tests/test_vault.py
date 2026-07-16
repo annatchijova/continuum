@@ -30,9 +30,7 @@ def tmp_vault(tmp_path):
     return Vault(tmp_path / "test.vault")
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Basic vault behavior.
 
 def test_seal_and_open(tmp_vault):
     data = {"name": "Ana", "documents": ["doc1.pdf", "doc2.pdf"]}
@@ -72,7 +70,7 @@ def test_envelope_hash_matches(tmp_vault):
 
 def test_corrupt_envelope_raises(tmp_vault):
     tmp_vault.seal({"k": "v"}, passphrase="p")
-    # Implementation note.
+    # Alter the ciphertext in the envelope.
     raw = json.loads(tmp_vault._path.read_text())
     raw["ciphertext"] = "deadbeef"
     tmp_vault._path.write_text(json.dumps(raw))
@@ -94,20 +92,18 @@ def test_unicode_data(tmp_vault):
     assert recovered == data
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Access-policy conditions.
 
 def test_inactivity_condition_not_met():
     now = datetime(2026, 7, 6, 12, 0, tzinfo=timezone.utc)
-    last = datetime(2026, 7, 5, 12, 0, tzinfo=timezone.utc)  # 1 dia
+    last = datetime(2026, 7, 5, 12, 0, tzinfo=timezone.utc)  # one day
     cond = InactivityCondition(days=30, last_activity_iso=last.isoformat())
     assert not cond.is_met(now=now)
 
 
 def test_inactivity_condition_met():
     now = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
-    last = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)  # ~62 dias
+    last = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)  # about 62 days
     cond = InactivityCondition(days=30, last_activity_iso=last.isoformat())
     assert cond.is_met(now=now)
 
@@ -125,15 +121,15 @@ def test_date_condition_met():
 
 
 def test_heir_key_condition():
-    cond = HeirKeyCondition.create("heir_1", "mi_clave_secreta")
-    assert cond.is_met("mi_clave_secreta")
-    assert not cond.is_met("clave_incorrecta")
+    cond = HeirKeyCondition.create("heir_1", "my_secret_key")
+    assert cond.is_met("my_secret_key")
+    assert not cond.is_met("incorrect_key")
 
 
 def test_heir_key_constant_time():
-    """Verificacion of tiempo constante  compare_digest, no ==."""
+    """Constant-time verification uses compare_digest, not ==."""
     cond = HeirKeyCondition.create("h1", "abc")
-    # Implementation note.
+    # Inputs of different lengths must also be rejected safely.
     assert not cond.is_met("")
     assert not cond.is_met("a" * 1000)
 

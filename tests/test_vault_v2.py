@@ -1,7 +1,7 @@
 """
 tests/test_vault_v2.py
 =======================
-Vault v2: keyslots, slot of recovery, rewrap and migracion v1v2.
+Vault v2: keyslots, recovery slot, rewrap, and v1-to-v2 migration.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def vault(tmp_path):
 
 
 def _make_v1_envelope(path, data, passphrase):
-    """Construye a vault v1 real (formato original) for tests of migracion."""
+    """Build a real v1 vault (original format) for migration tests."""
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     plaintext = json.dumps(data, sort_keys=True, ensure_ascii=True).encode()
     salt = _secrets.token_bytes(32)
@@ -48,9 +48,7 @@ def _make_v1_envelope(path, data, passphrase):
     }))
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# V2 envelope and passphrase behavior.
 
 def test_new_vault_is_v2_with_passphrase_slot(vault, tmp_path):
     info = vault.info()
@@ -68,14 +66,12 @@ def test_roundtrip_and_wrong_passphrase(vault):
 def test_seal_preserves_keyslots(vault):
     key = _secrets.token_bytes(32)
     vault.add_recovery_slot(PASS, key)
-    vault.seal({"another": "content"}, PASS)      # re-sellado (lock/heartbeat)
-    assert vault.has_recovery_slot()             # the custodia sobrevive
+    vault.seal({"another": "content"}, PASS)      # reseal (lock/heartbeat)
+    assert vault.has_recovery_slot()             # custody survives
     assert vault.open_with_recovery(key) == {"another": "content"}
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Recovery-slot behavior.
 
 def test_recovery_slot_roundtrip(vault):
     key = _secrets.token_bytes(32)
@@ -97,7 +93,7 @@ def test_replace_recovery_slot_invalidates_old_key(vault):
     vault.add_recovery_slot(PASS, new_key)       # replaces
     assert vault.open_with_recovery(new_key) == DATA
     with pytest.raises(VaultAuthError):
-        vault.open_with_recovery(old_key)        # custodios old revocados
+        vault.open_with_recovery(old_key)        # old custodians revoked
 
 
 def test_remove_recovery_slot(vault):
@@ -115,9 +111,7 @@ def test_recovery_key_must_be_32_bytes(vault):
         vault.add_recovery_slot(PASS, b"corta")
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Passphrase rotation behavior.
 
 def test_rewrap_rotates_passphrase_and_preserves_recovery(vault):
     key = _secrets.token_bytes(32)
@@ -127,36 +121,34 @@ def test_rewrap_rotates_passphrase_and_preserves_recovery(vault):
     vault.rewrap_passphrase(PASS, NEW)
     env_after = json.loads(vault._path.read_text())
 
-    # Implementation note.
+    # Payload ciphertext is preserved during keyslot rewrapping.
     assert env_before["ciphertext"] == env_after["ciphertext"]
     assert vault.open(NEW) == DATA
     with pytest.raises(VaultAuthError):
         vault.open(PASS)
-    # Implementation note.
+    # Recovery remains an independent access path.
     assert vault.open_with_recovery(key) == DATA
 
 
 def test_rewrap_with_wrong_old_passphrase_fails(vault):
     with pytest.raises(VaultAuthError):
         vault.rewrap_passphrase("incorrect", NEW)
-    assert vault.open(PASS) == DATA              # nada cambio
+    assert vault.open(PASS) == DATA              # nothing changed
 
 
 def test_set_passphrase_with_recovery(vault):
-    """the camino of the heirs: reconstruyen the recovery key and fijan
-    a passphrase new without conocer the old."""
+    """Heir path: reconstruct the recovery key and set a new passphrase
+    without knowing the old one."""
     key = _secrets.token_bytes(32)
     vault.add_recovery_slot(PASS, key)
-    vault.set_passphrase_with_recovery(key, "passphrase-heredada")
-    assert vault.open("passphrase-heredada") == DATA
+    vault.set_passphrase_with_recovery(key, "passphrase-inherited")
+    assert vault.open("passphrase-inherited") == DATA
     with pytest.raises(VaultAuthError):
-        vault.open(PASS)                         # the old quedo reemplazada
-    assert vault.has_recovery_slot()             # the custodia is conserva
+        vault.open(PASS)                         # the old one was replaced
+    assert vault.has_recovery_slot()             # custody is preserved
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# V1 compatibility and migration.
 
 def test_v1_envelope_still_opens(tmp_path):
     path = tmp_path / "old.vault"
@@ -171,7 +163,7 @@ def test_seal_migrates_v1_to_v2(tmp_path):
     _make_v1_envelope(path, DATA, PASS)
     v = Vault(path)
     data = v.open(PASS)
-    v.seal(data, PASS)                           # primer re-sellado (lock)
+    v.seal(data, PASS)                           # first reseal (lock)
     assert v.info()["version"] == "2"
     assert v.open(PASS) == DATA
 
@@ -205,9 +197,7 @@ def test_recovery_on_v1_raises(tmp_path):
         Vault(path).open_with_recovery(_secrets.token_bytes(32))
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Tamper detection.
 
 def test_tampered_payload_detected(vault):
     raw = json.loads(vault._path.read_text())

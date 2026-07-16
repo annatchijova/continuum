@@ -19,13 +19,11 @@ from legacy.core.shamir import (
 )
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Finite-field arithmetic.
 
 def test_gf_multiplication_agrees_with_schoolbook():
-    """the tablas exp/log deben match with the multiplicacion polinomial
-    directa module 0x11B for all the pares (exhaustivo, 64k casos)."""
+    """The exp/log tables must match direct polynomial multiplication modulo
+    0x11B for every pair (exhaustive, 64k cases)."""
     def slow_mul(a: int, b: int) -> int:
         r = 0
         while b:
@@ -53,9 +51,7 @@ def test_gf_div_by_zero_raises():
         _div(5, 0)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Sharing and reconstruction behavior.
 
 def test_roundtrip_basic():
     secret = _secrets.token_bytes(32)
@@ -106,14 +102,12 @@ def test_invalid_parameters():
 
 
 def test_two_splits_produce_incompatible_shares():
-    """Shares of repartos distintos of the same secreto no deben mezclarse
-    in silencio: the polinomios are distintos and the mezcla reconstruye
-    basura  the digest it detects."""
+    """Shares from different splits of the same secret must not be mixed
+    silently: distinct polynomials reconstruct garbage, detected by the digest."""
     secret = _secrets.token_bytes(8)
     a = split_secret(secret, shares=3, threshold=2)
     b = split_secret(secret, shares=3, threshold=2)
-    # Implementation note.
-    # Implementation note.
+    # Mixing shares from independent splits must fail verification.
     with pytest.raises(ShamirError, match="verification failed"):
         combine_shares([a[0], b[1]])
 
@@ -137,18 +131,16 @@ def test_duplicate_share_rejected():
 
 
 def test_shares_leak_nothing_individually():
-    """a share only no determina the secreto: dos secretos distintos
-    can producir shares with the same abscisa and data of igual longitud.
-    (Sanity of forma, no prueba criptografica  the garantia is matematica.)"""
+    """A single share does not determine the secret: two different secrets
+    can produce shares with the same abscissa and equal data length.
+    This is a format sanity check, not a cryptographic proof."""
     s1 = split_secret(b"\x00" * 16, shares=3, threshold=2)[0]
     s2 = split_secret(b"\xff" * 16, shares=3, threshold=2)[0]
     assert len(s1.data) == len(s2.data)
     assert s1.data != bytes(16)  # the share NO is the secreto in plaintext
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Serialization behavior.
 
 def test_serialization_roundtrip():
     secret = _secrets.token_bytes(32)
@@ -169,6 +161,6 @@ def test_serialized_share_tamper_detected():
     secret = _secrets.token_bytes(8)
     shares = split_secret(secret, shares=3, threshold=2)
     text = shares[0].serialize()
-    # Implementation note.
+    # Truncated serialized shares must be rejected.
     with pytest.raises(ShamirError):
         Share.deserialize(text[: len(text) // 2])
