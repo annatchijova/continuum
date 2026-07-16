@@ -28,6 +28,15 @@ answer into gentle, human language. It is never asked to decide anything.
 The people left behind deserve clarity delivered with warmth, but the clarity
 itself has to be provable, not just plausible.
 
+## Works without an API key
+
+Continuum's core product requires no API key, cloud account, or model access.
+The owner can create and lock a vault, capture and encrypt memories, classify
+and retrieve evidence, verify the audit chain, configure access conditions,
+and use the owner and heir flows entirely offline. An OpenAI API key is needed
+only for the optional, per-request GPT-5.6 narration layer; disabling it never
+changes a source, ranking, access decision, or integrity result.
+
 ## What Continuum actually does
 
 - **Understands a lifetime of documents.** Ingests text and classifies it by

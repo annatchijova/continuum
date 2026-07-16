@@ -100,6 +100,14 @@ def test_hackathon_docs_explain_codable_and_human_responsibilities():
     assert "`gpt-5.6`" in docs
 
 
+def test_readme_states_that_the_deterministic_product_needs_no_api_key():
+    readme = (Path(__file__).parents[1] / "README.md").read_text()
+
+    assert "## Works without an API key" in readme
+    assert "requires no API key, cloud account, or model access" in readme
+    assert "only for the optional, per-request GPT-5.6 narration layer" in readme
+
+
 def test_demo_workspace_is_searchable_and_auditable():
     with TemporaryDirectory() as directory, patch("continuum_web.narrator.enabled", return_value=False):
         root = Path(directory) / "workspace"
