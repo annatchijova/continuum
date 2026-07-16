@@ -12,7 +12,7 @@ import os
 import secrets
 import shutil
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -72,7 +72,12 @@ class Studio:
             raise ValueError("A workspace is already open. Lock it before opening another.")
 
     def create(
-        self, owner_id: str, passphrase: str, *, inactivity_days: int | None = None
+        self,
+        owner_id: str,
+        passphrase: str,
+        *,
+        inactivity_days: int | None = None,
+        inactivity_last_activity: datetime | None = None,
     ) -> dict[str, Any]:
         if len(passphrase) < 10:
             raise ValueError("Use a passphrase with at least 10 characters.")
@@ -82,6 +87,8 @@ class Studio:
             or not 1 <= inactivity_days <= 36_500
         ):
             raise ValueError("Inactivity protection must be between 1 and 36,500 days.")
+        if inactivity_last_activity is not None and inactivity_days is None:
+            raise ValueError("An inactivity timestamp requires an inactivity policy.")
         self._require_no_open_session()
         self._acquire_workspace()
         try:
@@ -94,7 +101,9 @@ class Studio:
                     [
                         InactivityCondition(
                             days=inactivity_days,
-                            last_activity_iso=datetime.now(timezone.utc).isoformat(),
+                            last_activity_iso=(
+                                inactivity_last_activity or datetime.now(timezone.utc)
+                            ).isoformat(),
                         )
                     ]
                 )
@@ -257,7 +266,15 @@ class Studio:
         if self.workspace.exists():
             shutil.rmtree(self.workspace)
         self.workspace.mkdir(parents=True)
-        self.create("Alex Morgan", "continuum-demo", inactivity_days=90)
+        # The fictional demo needs a policy that is visibly satisfied so its
+        # documented heir-view walkthrough remains possible without changing
+        # the protection assigned to any real Studio workspace.
+        self.create(
+            "Alex Morgan",
+            "continuum-demo",
+            inactivity_days=90,
+            inactivity_last_activity=datetime.now(timezone.utc) - timedelta(days=90),
+        )
         memories = [
             ("Apartment deed", "Property deed for the apartment at 42 Cedar Street. The notary is Elena Ruiz and the original is in the blue archival folder.", ["home", "urgent"]),
             ("Emergency care plan", "Medical history: allergy to penicillin. Primary physician: Dr. Lee. Keep the current medication list with this note.", ["health"]),

@@ -40,6 +40,20 @@ def test_demo_workspace_is_searchable_and_auditable():
         assert result["narration"] is None
 
 
+def test_demo_policy_allows_the_documented_read_only_heir_walkthrough():
+    with TemporaryDirectory() as directory:
+        root = Path(directory) / "workspace"
+        studio = Studio(root)
+        studio.demo()
+        studio.lock()
+
+        heir = Studio(root / "safe-demo")
+        dashboard = heir.unlock_heir("maria", "continuum-demo")
+
+        assert dashboard["role"] == "heir"
+        heir.lock()
+
+
 def test_capture_requires_an_open_workspace():
     with TemporaryDirectory() as directory:
         studio = Studio(Path(directory) / "new")

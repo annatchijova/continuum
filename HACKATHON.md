@@ -20,7 +20,9 @@ a verifiable history with a calm conversational interface.
 5. Lock the workspace. The UI clears its passphrase and the core reseals the
    vault.
 6. Open the same vault as an heir to show the existing policy-gated,
-   read-only experience.
+   read-only experience. The fictional demo's 90-day inactivity condition is
+   intentionally pre-satisfied; real Studio workspaces start their selected
+   inactivity clock at creation.
 
 ## How OpenAI and Codex fit
 
