@@ -1,7 +1,7 @@
 """
 tests/test_heir_revoke.py
 ==========================
-revoke_heir + extraction of conocimiento in ingest.
+revoke_heir + knowledge extraction during ingest.
 """
 from __future__ import annotations
 
@@ -12,10 +12,6 @@ from legacy.knowledge.extractor import KnowledgeDomain
 
 PASS = "pw"
 
-
-# Implementation note.
-# Implementation note.
-# Implementation note.
 
 def test_revoked_heir_denied_even_with_valid_key(tmp_path):
     agent = LegacyAgent(tmp_path, "owner")
@@ -38,15 +34,12 @@ def test_revoke_removes_key_condition_but_keeps_history(tmp_path):
     agent.register_heir_key("h1")
     agent.revoke_heir("h1")
 
-    # Implementation note.
     conds = agent._index.policy["conditions"]
     assert not any(
         c.get("type") == "heir_key" and c.get("heir_id") == "h1" for c in conds
     )
-    # Implementation note.
     h = next(h for h in agent._index.heirs if h["heir_id"] == "h1")
     assert h.get("revoked_at")
-    # Implementation note.
     assert "HEIR_REVOKED" in [e["event_type"] for e in agent._audit.events()]
 
 
@@ -60,10 +53,8 @@ def test_other_heirs_unaffected_by_revocation(tmp_path):
     agent.revoke_heir("h1")
     agent.lock(PASS)
 
-    # Implementation note.
     heir = LegacyAgent(tmp_path, "owner")
     assert heir.open_heir("h2", PASS, heir_key=s2) is True
-    # Implementation note.
     heir2 = LegacyAgent(tmp_path, "owner")
     assert heir2.open_heir("h1", PASS, heir_key=s1) is False
 
@@ -86,23 +77,19 @@ def test_revoked_heir_excluded_from_summary_and_guide(tmp_path):
     assert "Maria" in guide and "Olga" not in guide
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-
 def test_ingest_with_knowledge_extraction(tmp_path):
     agent = LegacyAgent(tmp_path / "data", "owner")
     agent.initialize(PASS)
-    src = tmp_path / "notas_medicas.txt"
+    src = tmp_path / "medical_notes.txt"
     src.write_text(
-        "protocol of treatment for pacientes with diagnosis of "
-        "hipertension: the treatment clinical initial contempla dose "
-        "escalonadas and seguimiento of the patient each tres semanas.",
+        "treatment protocol for patients diagnosed with hypertension: "
+        "the initial clinical treatment uses graduated doses and patient "
+        "follow-up every three weeks.",
         encoding="utf-8",
     )
     agent.ingest(src, extract_knowledge=True)
 
-    entries = agent.knowledge.search("treatment pacientes")
+    entries = agent.knowledge.search("treatment patients")
     assert entries and entries[0].domain == KnowledgeDomain.MEDICINE
     assert entries[0].source_path == str(src)
     assert "KNOWLEDGE_EXTRACTED" in [
@@ -114,8 +101,8 @@ def test_ingest_with_knowledge_extraction(tmp_path):
 def test_ingest_without_flag_does_not_create_knowledge_db(tmp_path):
     agent = LegacyAgent(tmp_path / "data", "owner")
     agent.initialize(PASS)
-    src = tmp_path / "nota.txt"
-    src.write_text("a nota cualquiera with content suficiente for todo esto",
+    src = tmp_path / "note.txt"
+    src.write_text("an ordinary note with enough content for this test",
                    encoding="utf-8")
     agent.ingest(src)
     assert not (tmp_path / "data" / "knowledge.db").exists()
@@ -124,8 +111,8 @@ def test_ingest_without_flag_does_not_create_knowledge_db(tmp_path):
 def test_ingest_knowledge_skips_short_text_silently(tmp_path):
     agent = LegacyAgent(tmp_path / "data", "owner")
     agent.initialize(PASS)
-    src = tmp_path / "corto.txt"
-    src.write_text("very corto", encoding="utf-8")
+    src = tmp_path / "short.txt"
+    src.write_text("very short", encoding="utf-8")
     agent.ingest(src, extract_knowledge=True)
     assert "KNOWLEDGE_EXTRACTED" not in [
         e["event_type"] for e in agent._audit.events()

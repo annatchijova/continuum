@@ -1,8 +1,8 @@
 """
 tests/test_heir_keys.py
 ========================
-register_heir_key + consolidate: management of heirs and mantenimiento
-of memory via LegacyAgent, with audit trail.
+register_heir_key + consolidate: heir management and memory maintenance
+through LegacyAgent, with an audit trail.
 """
 from __future__ import annotations
 
@@ -20,10 +20,6 @@ from legacy.vault.conditions import (
 
 PASS = "pw"
 
-
-# Implementation note.
-# Implementation note.
-# Implementation note.
 
 def test_register_key_grants_access_with_correct_key(tmp_path):
     agent = LegacyAgent(tmp_path, "owner")
@@ -52,13 +48,11 @@ def test_secret_is_never_persisted_in_plaintext(tmp_path):
     secret = agent.register_heir_key("h1")
     agent.lock(PASS)
 
-    # Implementation note.
     vault_bytes = (tmp_path / "legacy.vault").read_bytes()
     assert secret.encode() not in vault_bytes
     for ev in agent._audit.events():
         assert secret not in (ev.get("detail") or "")
         assert secret not in (ev.get("artifact") or "")
-    # Implementation note.
     reopened = LegacyAgent(tmp_path, "owner")
     reopened.open_owner(PASS)
     conds = reopened._index.policy["conditions"]
@@ -67,8 +61,8 @@ def test_secret_is_never_persisted_in_plaintext(tmp_path):
 
 
 def test_register_key_appends_to_existing_policy_with_and(tmp_path):
-    """with politica AND existente, the key sola NO alcanza (defensa in
-    profundidad): the inactividad still no is cumplio."""
+    """With an existing AND policy, the key alone is insufficient.
+    Defense in depth still requires the inactivity condition."""
     recent = datetime.now(timezone.utc).isoformat()
     policy = AccessPolicy([InactivityCondition(days=90, last_activity_iso=recent)])
     agent = LegacyAgent(tmp_path, "owner")
@@ -77,9 +71,8 @@ def test_register_key_appends_to_existing_policy_with_and(tmp_path):
     agent.lock(PASS)
 
     heir = LegacyAgent(tmp_path, "owner")
-    assert heir.open_heir("h1", PASS, heir_key=secret) is False  # AND: missing inactividad
+    assert heir.open_heir("h1", PASS, heir_key=secret) is False  # AND: inactivity missing
 
-    # Implementation note.
     future = datetime.now(timezone.utc) + timedelta(days=91)
     heir2 = LegacyAgent(tmp_path, "owner")
     assert heir2.open_heir("h1", PASS, heir_key=secret, now=future) is True
@@ -102,16 +95,11 @@ def test_register_key_requires_unlocked(tmp_path):
         agent.register_heir_key("h1")
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-
 def test_consolidate_merges_duplicates_and_audits(tmp_path):
     agent = LegacyAgent(tmp_path, "owner")
     agent.initialize(PASS)
 
-    # Implementation note.
-    base = "the contract of compraventa of the casa fue firmado ante notario in marzo"
+    base = "The house purchase contract was signed before a notary in March."
     from legacy.ingestion.doc_types import DocCategory
     agent._memory.store(base, DocCategory.LEGAL)
     agent._memory.store(base + " pasado", DocCategory.LEGAL)
