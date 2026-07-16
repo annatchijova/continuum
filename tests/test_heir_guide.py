@@ -18,14 +18,14 @@ _INDEX = {
     "last_updated": "2026-07-01T00:00:00+00:00",
     "artifacts": [
         {
-            "artifact_id": "a1", "path": "/docs/foto.jpg", "filename": "foto.jpg",
+            "artifact_id": "a1", "path": "/docs/photo.jpg", "filename": "photo.jpg",
             "category": "media", "content_hash": "c" * 64,
             "classification_confidence": "LOW", "memory_id": "m1",
             "ingested_at": "2026-02-01T00:00:00+00:00", "tags": [], "notes": "",
         },
         {
-            "artifact_id": "a2", "path": "/docs/testamento.pdf",
-            "filename": "testamento.pdf", "category": "legal",
+            "artifact_id": "a2", "path": "/docs/will.pdf",
+            "filename": "will.pdf", "category": "legal",
             "content_hash": "a" * 64, "classification_confidence": "HIGH",
             "memory_id": "m2", "ingested_at": "2026-02-01T00:00:00+00:00",
             "tags": ["urgent"], "notes": "original at the notary office",
@@ -60,7 +60,7 @@ def test_categories_ordered_by_priority():
 
 def test_guide_content_fields():
     guide = build_guide(_INDEX, generated_at=_TS)
-    assert "testamento.pdf" in guide
+    assert "will.pdf" in guide
     assert "original at the notary office" in guide  # owner note
     assert "urgent" in guide                         # tags
     assert "Olga" in guide                            # heirs
@@ -70,9 +70,9 @@ def test_guide_content_fields():
 
 def test_guide_marks_archived_artifacts():
     guide = build_guide(_INDEX, generated_at=_TS, archived_hashes=["a" * 64])
-    line = next(l for l in guide.splitlines() if "testamento.pdf" in l)
+    line = next(l for l in guide.splitlines() if "will.pdf" in l)
     assert "🔒" in line
-    other = next(l for l in guide.splitlines() if "foto.jpg" in l)
+    other = next(l for l in guide.splitlines() if "photo.jpg" in l)
     assert "🔒" not in other
 
 
@@ -91,12 +91,12 @@ def test_empty_index():
 def test_agent_heir_guide_audits(tmp_path):
     agent = LegacyAgent(tmp_path, "anna")
     agent.initialize(PASS)
-    src = tmp_path / "carta.txt"
+    src = tmp_path / "letter.txt"
     src.write_text("Dear child: this is a personal letter for you.", encoding="utf-8")
     agent.ingest(src)
 
     guide = agent.heir_guide(actor="h1")
-    assert "carta.txt" in guide
+    assert "letter.txt" in guide
     assert "GUIDE_GENERATED" in [e["event_type"] for e in agent._audit.events()]
 
 
