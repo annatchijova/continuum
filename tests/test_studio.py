@@ -91,6 +91,15 @@ def test_owner_stress_test_protocol_keeps_personal_data_out_of_git_and_models():
     assert "continuum-anna-stress/" in ignore
 
 
+def test_hackathon_docs_explain_codable_and_human_responsibilities():
+    docs = (Path(__file__).parents[1] / "HACKATHON.md").read_text()
+
+    assert "## How Codex accelerated development" in docs
+    assert "Codex was used as a collaborative engineering agent" in docs
+    assert "human owner reviewed scope" in docs
+    assert "`gpt-5.6`" in docs
+
+
 def test_demo_workspace_is_searchable_and_auditable():
     with TemporaryDirectory() as directory, patch("continuum_web.narrator.enabled", return_value=False):
         root = Path(directory) / "workspace"

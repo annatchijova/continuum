@@ -55,6 +55,35 @@ The **Continuum agent contract** is intentionally restrictive:
 This boundary is the central product choice: language models help people
 understand their legacy, but never become the source of truth for their legacy.
 
+## How Codex accelerated development
+
+Continuum began as a CLI-first Digital Legacy prototype. Codex accelerated its
+transition into a product without replacing the owner's architectural choices.
+The human product direction was explicit: the core must remain deterministic,
+offline, and authoritative; plaintext must leave the device only after
+per-request consent; and no model may make legal, financial, medical, access,
+classification, ranking, or integrity decisions.
+
+Within those non-negotiable constraints, Codex helped to:
+
+- map the existing Python core and preserve the `legacy/` package while adding
+  the separate Continuum Studio presentation layer;
+- build the loopback-only local server, owner and heir workflows, safe demo,
+  encrypted capture path, integrity dashboard, and static judge previews;
+- implement and test the explicit heir-release policy, workspace session lock,
+  browser hardening, and the source-first answer rendering contract;
+- integrate the bounded OpenAI Agents SDK narrator with `gpt-5.6`, Responses
+  storage disabled, SDK tracing disabled, untrusted-data isolation, and local
+  audit events that contain workflow metadata rather than plaintext;
+- add focused regression tests after each change, plus documentation, demo
+  material, and bilingual static presentation pages for judges.
+
+Codex was used as a collaborative engineering agent: to inspect code paths,
+propose bounded changes, write and run tests, and iteratively improve the
+product experience. The human owner reviewed scope and retained authority over
+the product's security, privacy, and ethical boundaries. The git history and
+the tests provide an inspectable record of that collaboration.
+
 ## Run locally
 
 ```bash
