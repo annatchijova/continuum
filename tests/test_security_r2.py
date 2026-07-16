@@ -1,9 +1,9 @@
 """
 tests/test_security_r2.py
 ==========================
-Regresiones para los hallazgos de la auditoría R2.
+Regressions for findings from security audit R2.
 
-Cada test tiene el ID del hallazgo que cubre.
+Each test contains the ID of the finding it covers.
 """
 import hashlib
 import json
@@ -17,11 +17,11 @@ import pytest
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# R2-001 — Vault: escritura atómica
+# R2-001 — Vault: atomic writing
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_r2_001_vault_atomic_write_leaves_no_tmp(tmp_path):
-    """Después de seal() exitoso no debe quedar archivo .tmp."""
+    """A successful seal() leaves no .tmp file."""
     from legacy.vault.locker import Vault
     v = Vault(tmp_path / "test.vault")
     v.seal({"x": 1}, "pass")
@@ -30,11 +30,11 @@ def test_r2_001_vault_atomic_write_leaves_no_tmp(tmp_path):
 
 def test_r2_001_vault_overwrites_preserve_original_until_rename(tmp_path):
     """
-    Simula que seal() escribe primero al .tmp.
-    El vault original solo se reemplaza cuando el rename es exitoso.
-    El .tmp debe existir durante la escritura antes del replace.
-    (Verificación post-facto: después del seal, el vault original fue reemplazado
-    y el contenido es el nuevo, no el viejo.)
+    Simulate seal() writing to .tmp first.
+    The original vault is replaced only when rename succeeds.
+    The .tmp file must exist during writing before replacement.
+    (Post-facto verification: after seal, the original vault was replaced
+    and the content is new rather than old.)
     """
     from legacy.vault.locker import Vault
     v = Vault(tmp_path / "test.vault")
@@ -44,24 +44,24 @@ def test_r2_001_vault_overwrites_preserve_original_until_rename(tmp_path):
     v.seal({"version": 2}, "pass")
     content_v2 = json.loads((tmp_path / "test.vault").read_text())
 
-    # El segundo seal reemplazó el primero completamente
+    # The second seal completely replaced the first.
     assert content_v1 != content_v2
     assert not (tmp_path / "test.tmp").exists()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# R2-002 — STDP poisoning: reinforce/forget con audit trail
+# R2-002 — STDP poisoning: reinforce/forget with audit trail
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_r2_002_reinforce_memory_logs_audit_event(tmp_path):
-    """reinforce_memory() genera exactamente un evento MEMORY_REINFORCED."""
+    """reinforce_memory() produces exactly one MEMORY_REINFORCED event."""
     from legacy.agent.memory_agent import LegacyAgent
     from legacy.ingestion.doc_types import DocCategory
 
     agent = LegacyAgent(tmp_path / "data", "owner-test", hmac_key=b"testkey12345678!")
     agent.initialize("pass")
 
-    mid = agent._memory.store("testamento legal contrato", DocCategory.LEGAL)
+    mid = agent._memory.store("will legal contract", DocCategory.LEGAL)
     agent.reinforce_memory(mid)
 
     events = agent._audit.events(event_type="MEMORY_REINFORCED")
@@ -70,14 +70,14 @@ def test_r2_002_reinforce_memory_logs_audit_event(tmp_path):
 
 
 def test_r2_002_forget_memory_logs_audit_event(tmp_path):
-    """forget_memory() genera exactamente un evento MEMORY_FORGOTTEN."""
+    """forget_memory() produces exactly one MEMORY_FORGOTTEN event."""
     from legacy.agent.memory_agent import LegacyAgent
     from legacy.ingestion.doc_types import DocCategory
 
     agent = LegacyAgent(tmp_path / "data", "owner-test", hmac_key=b"testkey12345678!")
     agent.initialize("pass")
 
-    mid = agent._memory.store("nota personal privada", DocCategory.PERSONAL)
+    mid = agent._memory.store("private personal note", DocCategory.PERSONAL)
     agent.forget_memory(mid)
 
     events = agent._audit.events(event_type="MEMORY_FORGOTTEN")
@@ -86,7 +86,7 @@ def test_r2_002_forget_memory_logs_audit_event(tmp_path):
 
 
 def test_r2_002_reinforce_memory_requires_open_vault(tmp_path):
-    """reinforce_memory() en vault cerrado lanza RuntimeError."""
+    """reinforce_memory() on a locked vault raises RuntimeError."""
     from legacy.agent.memory_agent import LegacyAgent
 
     agent = LegacyAgent(tmp_path / "data", "owner-test", hmac_key=b"testkey12345678!")
@@ -98,7 +98,7 @@ def test_r2_002_reinforce_memory_requires_open_vault(tmp_path):
 
 
 def test_r2_002_forget_memory_requires_open_vault(tmp_path):
-    """forget_memory() en vault cerrado lanza RuntimeError."""
+    """forget_memory() on a locked vault raises RuntimeError."""
     from legacy.agent.memory_agent import LegacyAgent
 
     agent = LegacyAgent(tmp_path / "data", "owner-test", hmac_key=b"testkey12345678!")
@@ -110,15 +110,15 @@ def test_r2_002_forget_memory_requires_open_vault(tmp_path):
 
 
 def test_r2_002_stdp_weights_bounded(tmp_path):
-    """STDP potentiation no puede superar STDP_MAX_WEIGHT = 2.0."""
+    """STDP potentiation cannot exceed STDP_MAX_WEIGHT = 2.0."""
     import sqlite3
     from legacy.memory.field import MemoryField, STDP_MAX_WEIGHT
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
-    # Ingerir 20 documentos de la misma categoría para saturar el peso
+    # Ingest 20 documents from the same category to saturate the weight.
     for i in range(20):
-        mf.store(f"contrato hipoteca banco {i} legado", DocCategory.LEGAL)
+        mf.store(f"contract mortgage bank {i} legacy", DocCategory.LEGAL)
 
     with sqlite3.connect(tmp_path / "mem.db") as conn:
         max_w = conn.execute("SELECT MAX(weight) FROM synaptic_links").fetchone()[0]
@@ -127,66 +127,66 @@ def test_r2_002_stdp_weights_bounded(tmp_path):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# R2-003 — _recency_bonus con timestamp futuro
+# R2-003 — _recency_bonus with a future timestamp
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_r2_003_recency_bonus_zero_for_future_timestamp():
-    """Si last_access > now, el bono de recencia debe ser 0, no positivo."""
+    """If last_access > now, the recency bonus must be 0, not positive."""
     from legacy.memory.field import _recency_bonus
 
     now = time.time()
-    future = now + 86400  # 1 día adelante
+    future = now + 86400  # One day ahead.
     bonus = _recency_bonus(future, now)
     assert bonus == 0.0
 
 
 def test_r2_003_recency_bonus_positive_for_past_timestamp():
-    """Si last_access < now, el bono debe ser > 0."""
+    """If last_access < now, the bonus must be > 0."""
     from legacy.memory.field import _recency_bonus
 
     now = time.time()
-    past = now - 3600  # 1 hora atrás
+    past = now - 3600  # One hour ago.
     bonus = _recency_bonus(past, now)
     assert bonus > 0.0
 
 
 def test_r2_003_recency_bonus_bounded_above():
-    """El bono de recencia no puede superar 0.05 (inmediato, delta=0)."""
+    """The recency bonus cannot exceed 0.05 (immediate, delta=0)."""
     from legacy.memory.field import _recency_bonus
 
     now = time.time()
     bonus = _recency_bonus(now, now)
-    # exp(0) = 1, bonus = 0.05 * 1.0 = 0.05
+    # exp(0) = 1, bonus = 0.05 * 1.0 = 0.05.
     assert bonus == pytest.approx(0.05, abs=1e-9)
 
 
 def test_r2_003_future_timestamp_does_not_dominate_recall(tmp_path):
     """
-    Una memoria con last_access en el futuro no debe dominar el recall.
-    Antes del fix, podía tener bonus > 50 y desplazar toda memoria legítima.
+    A memory with a future last_access must not dominate recall.
+    Before the fix, its bonus could exceed 50 and displace every legitimate memory.
     """
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
-    # Memoria "trampa" — será marcada con timestamp futuro manualmente
-    mid_trap = mf.store("documento sin relevancia alguna xyz", DocCategory.PERSONAL)
-    mid_real = mf.store("testamento herencia bienes legado familia", DocCategory.LEGAL)
+    # "Trap" memory, manually marked with a future timestamp.
+    mid_trap = mf.store("irrelevant document xyz", DocCategory.PERSONAL)
+    mid_real = mf.store("will inheritance assets legacy family", DocCategory.LEGAL)
 
     import sqlite3
-    future_ts = time.time() + 86400 * 10  # 10 días en el futuro
+    future_ts = time.time() + 86400 * 10  # Ten days in the future.
     with sqlite3.connect(tmp_path / "mem.db") as conn:
         conn.execute("UPDATE memories SET last_access=? WHERE memory_id=?",
                      (future_ts, mid_trap))
         conn.commit()
 
-    results = mf.recall("testamento herencia legado")
+    results = mf.recall("will inheritance legacy")
     assert len(results) > 0
-    # La memoria relevante debe aparecer; la trampa no debe desplazarla
+    # The relevant memory must appear; the trap must not displace it.
     top_id = results[0].memory_id
     assert top_id == mid_real, (
-        f"La memoria trampa (future timestamp) dominó el recall. "
-        f"Top: {top_id}, esperado: {mid_real}"
+        f"The trap memory (future timestamp) dominated recall. "
+        f"Top: {top_id}, expected: {mid_real}"
     )
 
 
@@ -196,76 +196,76 @@ def test_r2_003_future_timestamp_does_not_dominate_recall(tmp_path):
 
 def test_r2_004_recall_stable_after_vocab_growth(tmp_path):
     """
-    Recall de una memoria específica no debe degradarse después de
-    ingerir documentos que extienden el vocabulario.
+    Recall for a specific memory must not degrade after ingesting documents
+    that extend the vocabulary.
     """
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
-    mid = mf.store("hipoteca banco inmueble propiedad escritura", DocCategory.REAL_ESTATE)
+    mid = mf.store("mortgage bank real estate property deed", DocCategory.REAL_ESTATE)
 
-    # Recall antes de extender el vocab
-    results_before = mf.recall("hipoteca inmueble")
+    # Recall before extending the vocabulary.
+    results_before = mf.recall("mortgage property")
     scores_before = {r.memory_id: r.final_score for r in results_before}
 
-    # Extender el vocabulario con documentos nuevos de otro dominio
+    # Extend the vocabulary with new documents from another domain.
     for i in range(30):
         mf.store(
-            f"diagnóstico médico laboratorio análisis sangre {i}",
+            f"medical diagnosis laboratory blood analysis {i}",
             DocCategory.MEDICAL
         )
 
-    # Recall después de la extensión
-    results_after = mf.recall("hipoteca inmueble")
+    # Recall after the extension.
+    results_after = mf.recall("mortgage property")
     scores_after = {r.memory_id: r.final_score for r in results_after}
 
-    # La memoria original debe seguir siendo recuperable
-    assert mid in scores_after, "Memoria original perdida tras crecimiento del vocab"
-    # El score no debe caer a cero (lo que indicaría fallback a overlap)
+    # The original memory must remain recoverable.
+    assert mid in scores_after, "Original memory lost after vocabulary growth"
+    # The score must not fall to zero, which would indicate overlap fallback.
     assert scores_after[mid] > 0.01
 
 
 def test_r2_004_lazy_recompute_uses_cosine_not_overlap(tmp_path):
     """
-    Cuando el vocab crece, recall usa recompute coseno, no token overlap.
-    Un documento muy similar a la query pero almacenado con vocab viejo
-    debe seguir puntuando alto.
+    As the vocabulary grows, recall uses cosine recomputation rather than
+    token overlap. A document very similar to the query but stored with an
+    old vocabulary must still score highly.
     """
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
-    # Almacenar con vocab inicial pequeño
-    mid = mf.store("seguro de vida póliza cobertura", DocCategory.FINANCIAL)
+    # Store with a small initial vocabulary.
+    mid = mf.store("life insurance policy coverage", DocCategory.FINANCIAL)
 
-    # Crecer el vocab significativamente
+    # Grow the vocabulary significantly.
     for i in range(50):
-        mf.store(f"palabra{i} término{i} concepto{i} definición{i}", DocCategory.PERSONAL)
+        mf.store(f"word{i} term{i} concept{i} definition{i}", DocCategory.PERSONAL)
 
-    results = mf.recall("seguro de vida póliza")
+    results = mf.recall("life insurance policy")
     assert any(r.memory_id == mid for r in results), \
-        "Memoria de seguro de vida no recuperada con vocab extendido"
+        "Life insurance memory was not recovered with the extended vocabulary"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# R2-005 — NFC/NFD: misma palabra, mismo token
+# R2-005 — NFC/NFD: same word, same token
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_r2_005_tokenize_nfc_nfd_equivalent():
-    """NFC y NFD de la misma palabra producen los mismos tokens."""
+    """NFC and NFD forms of the same word produce the same tokens."""
     from legacy.memory.field import _tokenize
 
     nfc = "café résumé"
     nfd = unicodedata.normalize("NFD", nfc)
-    assert nfc != nfd  # confirmar que son distintos en bytes
+    assert nfc != nfd  # Confirm they differ at the byte level.
     assert _tokenize(nfc) == _tokenize(nfd)
 
 
 def test_r2_005_store_nfd_recall_nfc(tmp_path):
     """
-    Documento almacenado con texto NFD debe recuperarse con query NFC
-    y viceversa.
+    A document stored with NFD text must be recalled with an NFC query,
+    and vice versa.
     """
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
@@ -274,39 +274,39 @@ def test_r2_005_store_nfd_recall_nfc(tmp_path):
     nfd_content = unicodedata.normalize("NFD", "médico diagnóstico clínica")
     mid = mf.store(nfd_content, DocCategory.MEDICAL)
 
-    # Query en NFC
+    # Query in NFC.
     results = mf.recall("médico diagnóstico")
     assert any(r.memory_id == mid for r in results), \
-        "NFC query no recuperó documento almacenado en NFD"
+        "NFC query did not recover the document stored in NFD"
 
 
 def test_r2_005_canonicalize_nfc_nfd_same_hash():
-    """NFC y NFD del mismo string producen el mismo hash canónico."""
+    """NFC and NFD forms of the same string produce the same canonical hash."""
     from legacy.core.canonicalize import _canonicalize
     from legacy.core.hash_chain import canonical_hash
 
-    payload_nfc = {"actor": "María", "detail": "café con leche"}
+    payload_nfc = {"actor": "Maria", "detail": "coffee with milk"}
     payload_nfd = {
-        "actor": unicodedata.normalize("NFD", "María"),
-        "detail": unicodedata.normalize("NFD", "café con leche"),
+        "actor": unicodedata.normalize("NFD", "Maria"),
+        "detail": unicodedata.normalize("NFD", "coffee with milk"),
     }
     assert canonical_hash(payload_nfc) == canonical_hash(payload_nfd)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# R2-006 — Inyección temporal en open_heir(now=...)
+# R2-006 — Time injection in open_heir(now=...)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_r2_006_now_override_logged_in_audit(tmp_path):
     """
-    Cuando open_heir() recibe `now` explícito, el audit trail debe registrar
-    el valor overrideado en el detail del evento CONDITION_CHECK.
+    When open_heir() receives an explicit `now`, the audit trail must record
+    the overridden value in the CONDITION_CHECK event detail.
     """
     from legacy.agent.memory_agent import LegacyAgent
     from legacy.vault.conditions import AccessPolicy, DateCondition
 
     now_real = datetime.now(timezone.utc)
-    # Condición: fecha de acceso en 1 año
+    # Condition: access date one year from now.
     far_future = (now_real + timedelta(days=365)).isoformat()
     policy = AccessPolicy(conditions=[DateCondition(unlock_after_iso=far_future)])
 
@@ -314,22 +314,22 @@ def test_r2_006_now_override_logged_in_audit(tmp_path):
     agent.initialize("pass", policy=policy)
     agent.lock("pass")
 
-    # Heredero inyecta un 'now' en el futuro para eludir DateCondition
+    # The heir injects a future 'now' to bypass DateCondition.
     forged_now = now_real + timedelta(days=400)
     granted = agent.open_heir("heir-1", "pass", now=forged_now)
 
-    assert granted is True  # la condición se satisface con el now falso
+    assert granted is True  # The condition is satisfied by the forged now.
 
     condition_events = agent._audit.events(event_type="CONDITION_CHECK")
     assert len(condition_events) >= 1
     last_event = condition_events[-1]
     assert "now_override" in last_event["detail"], \
-        "El override de 'now' no quedó registrado en el audit trail"
+        "The 'now' override was not recorded in the audit trail"
     assert forged_now.isoformat() in last_event["detail"]
 
 
 def test_r2_006_no_now_override_tag_when_now_is_none(tmp_path):
-    """Cuando now=None (uso normal), el audit trail no incluye 'now_override'."""
+    """When now=None (normal usage), the audit trail omits 'now_override'."""
     from legacy.agent.memory_agent import LegacyAgent
     from legacy.vault.conditions import AccessPolicy, ManualCondition
 
@@ -347,18 +347,18 @@ def test_r2_006_no_now_override_tag_when_now_is_none(tmp_path):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Invariantes DL — enforcement
+# DL invariants — enforcement
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_dl001_ingest_always_sets_artifact(tmp_path):
-    """DL-001: artifact_id y path siempre presentes después de ingest()."""
+    """DL-001: artifact_id and path are always present after ingest()."""
     from legacy.agent.memory_agent import LegacyAgent
 
     agent = LegacyAgent(tmp_path / "data", "owner-test", hmac_key=b"testkey12345678!")
     agent.initialize("pass")
 
-    doc = tmp_path / "testamento.txt"
-    doc.write_text("Este es mi testamento.")
+    doc = tmp_path / "will.txt"
+    doc.write_text("This is my will.")
     record = agent.ingest(doc)
 
     assert record.artifact_id
@@ -368,8 +368,8 @@ def test_dl001_ingest_always_sets_artifact(tmp_path):
 
 def test_dl004_every_vault_mutation_has_audit_event(tmp_path):
     """
-    DL-004: initialize, ingest, reinforce_memory, forget_memory, lock
-    producen cada uno exactamente sus eventos esperados.
+    DL-004: initialize, ingest, reinforce_memory, forget_memory, and lock
+    each produce exactly their expected events.
     """
     from legacy.agent.memory_agent import LegacyAgent
     from legacy.ingestion.doc_types import DocCategory
@@ -377,7 +377,7 @@ def test_dl004_every_vault_mutation_has_audit_event(tmp_path):
     agent = LegacyAgent(tmp_path / "data", "owner-test", hmac_key=b"testkey12345678!")
     agent.initialize("pass")
 
-    mid = agent._memory.store("contenido de prueba", DocCategory.PERSONAL)
+    mid = agent._memory.store("sample content", DocCategory.PERSONAL)
     agent.reinforce_memory(mid)
     agent.forget_memory(mid)
     agent.lock("pass")
@@ -393,20 +393,20 @@ def test_dl004_every_vault_mutation_has_audit_event(tmp_path):
 
 def test_dl005_stdp_makes_retrieval_stateful(tmp_path):
     """
-    DL-005 (documentado como limitación): dos recall() consecutivos idénticos
-    producen el mismo top_memory_id pero scores distintos (last_access muta).
+    DL-005 (documented limitation): two identical consecutive recall() calls
+    produce the same top_memory_id but different scores (last_access mutates).
     """
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
-    mf.store("hipoteca escritura banco propiedad", DocCategory.REAL_ESTATE)
-    mf.store("testamento herencia familia legado", DocCategory.LEGAL)
+    mf.store("mortgage deed bank property", DocCategory.REAL_ESTATE)
+    mf.store("will inheritance family legacy", DocCategory.LEGAL)
 
-    r1 = mf.recall("hipoteca banco")
-    r2 = mf.recall("hipoteca banco")
+    r1 = mf.recall("mortgage bank")
+    r2 = mf.recall("mortgage bank")
 
-    # El orden de los IDs debe ser consistente
+    # ID ordering must be consistent.
     assert [r.memory_id for r in r1] == [r.memory_id for r in r2]
-    # Pero los scores pueden diferir por last_access / recency_bonus
-    # (no asertamos igualdad — este es el comportamiento esperado de STDP)
+    # Scores may differ because of last_access / recency_bonus.
+    # We do not assert equality; this is expected STDP behavior.
