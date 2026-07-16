@@ -3,26 +3,26 @@ legacy/core/audit_trail.py
 ===========================
 Audit trail append-only with hash chain tamper-evident.
 
-each evento of acceso to the legado remains sellado in SQLite WAL.
-the hash chain cubre the payload complete  no field is editable
-without break the chain.
+Every access event for the legacy remains sealed in SQLite WAL.
+The hash chain covers the complete payload; no field can be edited
+without breaking the chain.
 
-Semantica:
-  - a AuditTrail by vault.
-  - append() is atomico: falla o writes the link complete.
-  - verify() acumula all the errores, no only the first.
-  - the chain is verificable by heirs with the key HMAC o
-    of forma independiente without ella (only SHA-256).
+Semantics:
+  - One AuditTrail per vault.
+  - append() is atomic: it either fails or writes the complete link.
+  - verify() accumulates every error, not only the first.
+  - Heirs can verify the chain with the HMAC key or independently without it
+    (SHA-256 only).
 
-Eventos registrados:
-  VAULT_CREATED    primer sellado of the vault
-  VAULT_UNLOCKED   condition of acceso satisfecha
-  VAULT_LOCKED     re-sellado
-  ARTIFACT_READ    heir leyo a artifact
-  QUERY            query to the agente
-  CONDITION_CHECK  evaluation of condition of acceso
+Recorded events:
+  VAULT_CREATED    first sealing of the vault
+  VAULT_UNLOCKED   access condition satisfied
+  VAULT_LOCKED     re-sealing
+  ARTIFACT_READ    heir read an artifact
+  QUERY            query to the agent
+  CONDITION_CHECK  access-condition evaluation
   HEIR_ADDED       new heir recorded
-  HEIR_REVOKED     heir revocado
+  HEIR_REVOKED     heir revoked
 """
 from __future__ import annotations
 
@@ -69,10 +69,10 @@ _STRUCTURAL_FIELDS = frozenset({
 
 class AuditTrail:
     """
-    Audit trail append-only with hash chain v2.
+    Append-only audit trail with hash chain v2.
 
-    db_path : ruta to the SQLite (is crea if does not exist).
-    hmac_key: bytes of key; None  resuelve of the entorno; b""  hash-only.
+    db_path : SQLite path (created if it does not exist).
+    hmac_key: key bytes; None resolves from the environment; b"" means hash-only.
     """
 
     def __init__(
@@ -91,18 +91,16 @@ class AuditTrail:
 
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
-            # Implementation note.
+            # Create the schema before loading the current chain tip.
             conn.executescript(_SCHEMA)
         self._seq, self._prev_hash = self._load_tip()
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # SQLite connection and tip management.
 
     @contextmanager
     def _connect(self) -> Generator[sqlite3.Connection, None, None]:
         conn = sqlite3.connect(self._db_path, timeout=10)
-        conn.isolation_level = None   # autocommit  the transacciones are explicitas
+        conn.isolation_level = None   # autocommit; transactions are explicit
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA synchronous=FULL")
         conn.execute("PRAGMA foreign_keys=ON")
@@ -118,7 +116,7 @@ class AuditTrail:
             conn.close()
 
     def _load_tip(self) -> tuple[int, str]:
-        """Carga seq and entry_hash of the last link for continuar the chain."""
+        """Load the last link sequence and hash so the chain can continue."""
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT seq, entry_hash FROM audit_events ORDER BY seq DESC LIMIT 1"
@@ -127,9 +125,7 @@ class AuditTrail:
             return row[0], row[1]
         return 0, GENESIS_HASH
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Event appending.
 
     def append(
         self,
@@ -142,18 +138,18 @@ class AuditTrail:
         event_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        adds a evento sellado a the chain.
-        Atomico: o writes the link complete o lanza excepcion.
+        Add a sealed event to the chain.
+        Atomic: either write the complete link or raise an exception.
 
-        FIX F-003 (race condition): the tip (seq + prev_hash) is recarga
-        from the DB dentro of the transaccion with EXCLUSIVE lock.
-        Multiples instancias over the same file are seguras.
+        FIX F-003 (race condition): reload the tip (seq + prev_hash) from the
+        database inside the transaction with an EXCLUSIVE lock. Multiple
+        instances using the same file are safe.
         """
         ts = timestamp or datetime.now(timezone.utc).isoformat()
         eid = event_id or str(uuid.uuid4())
 
         with self._connect() as conn:
-            # Implementation note.
+            # Reload the tip inside the exclusive transaction.
             conn.execute("BEGIN EXCLUSIVE")
             tip_row = conn.execute(
                 "SELECT seq, entry_hash FROM audit_events ORDER BY seq DESC LIMIT 1"
@@ -201,14 +197,12 @@ class AuditTrail:
             )
             conn.execute("COMMIT")
 
-        # Implementation note.
+        # Update the in-memory tip only after the transaction commits.
         self._seq = next_seq
         self._prev_hash = link.entry_hash
         return row
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Event queries.
 
     def events(
         self,
@@ -217,16 +211,16 @@ class AuditTrail:
         actor: Optional[str] = None,
         limit: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """returns eventos filtrados, ordenados by seq ascendente.
+        """Return filtered events ordered by ascending sequence number.
 
-        FIX F-005: limit must be int positivo. float("inf") u otros tipos
-        invalidos lanzan ValueError instead of OverflowError no manejado.
+        FIX F-005: limit must be a positive integer. float("inf") and other
+        invalid types raise ValueError instead of an unhandled OverflowError.
         """
         if limit is not None:
             if not isinstance(limit, int) or isinstance(limit, bool):
-                raise ValueError(f"limit debe ser int positivo, recibido: {limit!r}")
+                raise ValueError(f"limit must be a positive int, received: {limit!r}")
             if limit <= 0:
-                raise ValueError(f"limit debe ser > 0, recibido: {limit}")
+                raise ValueError(f"limit must be > 0, received: {limit}")
 
         query = "SELECT * FROM audit_events WHERE 1=1"
         params: list = []
@@ -245,15 +239,13 @@ class AuditTrail:
             rows = conn.execute(query, params).fetchall()
         return [dict(r) for r in rows]
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Chain verification.
 
     def verify(self, *, hmac_key: Optional[bytes] = None) -> ChainVerification:
         """
-        Verifica the integridad complete of the chain.
-        hmac_key=None  usa the key of the entorno (if exists).
-        hmac_key=b""   verificacion hash-only, without HMAC.
+        Verify the complete integrity of the chain.
+        hmac_key=None uses the environment key, if one exists.
+        hmac_key=b"" performs hash-only verification without HMAC.
         """
         key = hmac_key if hmac_key is not None else self._hmac_key
         if isinstance(key, bytes) and len(key) == 0:
@@ -274,7 +266,7 @@ class AuditTrail:
 
     @property
     def tip_hash(self) -> str:
-        """entry_hash of the last link  for checkpoints externos."""
+        """Entry hash of the last link, for external checkpoints."""
         return self._prev_hash
 
     @property

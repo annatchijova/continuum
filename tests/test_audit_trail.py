@@ -92,7 +92,7 @@ def test_verify_with_hmac(trail_hmac):
 
 
 def test_tampered_event_detected(tmp_path):
-    """Modificar a evento directamente in SQLite must break the chain."""
+    """Modifying an event directly in SQLite must break the chain."""
     import sqlite3
     trail = AuditTrail(tmp_path / "t.db", hmac_key=b"")
     trail.append("VAULT_CREATED", actor="owner")
@@ -122,7 +122,7 @@ def test_verify_empty_chain(trail):
 # Implementation note.
 
 def test_chain_continues_across_instances(tmp_path):
-    """the seq and prev_hash continuan correctamente to the reabrir the trail."""
+    """Sequence and prev_hash must continue correctly after reopening the trail."""
     t1 = AuditTrail(tmp_path / "shared.db", hmac_key=b"")
     t1.append("VAULT_CREATED", actor="o")
     t1.append("ARTIFACT_INGESTED", actor="o")
