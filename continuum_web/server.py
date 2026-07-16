@@ -276,7 +276,12 @@ class Handler(SimpleHTTPRequestHandler):
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Run the Continuum Studio local app")
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        choices=["127.0.0.1"],
+        help="Continuum Studio is intentionally limited to local loopback.",
+    )
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--workspace", type=Path, default=DEFAULT_WORKSPACE)
     args = parser.parse_args(argv)

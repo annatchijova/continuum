@@ -3,7 +3,10 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from continuum_web.server import Studio
+from continuum_web import server
 from continuum_web import narrator
 
 
@@ -165,3 +168,10 @@ def test_capture_preserves_safe_supported_text_file_extension():
         )
 
         assert result["record"]["filename"].endswith("-contract.md")
+
+
+def test_server_refuses_non_loopback_host():
+    with pytest.raises(SystemExit) as exc:
+        server.main(["--host", "0.0.0.0"])
+
+    assert exc.value.code == 2
