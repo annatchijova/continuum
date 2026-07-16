@@ -8,6 +8,7 @@ import pytest
 from continuum_web.server import Studio, _decode_json_object
 from continuum_web import server
 from legacy.core.lockfile import LockHeldError
+from legacy.agent.memory_agent import LegacyAgent
 from continuum_web import narrator
 
 
@@ -200,6 +201,20 @@ def test_new_studio_workspace_enables_core_database_encryption():
         studio.create("alex", "a-long-test-passphrase")
 
         assert studio.agent._index.db_key_hex
+
+
+def test_existing_unencrypted_vault_is_reported_without_migration():
+    with TemporaryDirectory() as directory:
+        workspace = Path(directory) / "legacy"
+        core = LegacyAgent(workspace, "alex")
+        core.initialize("a-long-test-passphrase")
+        core.lock("a-long-test-passphrase")
+
+        studio = Studio(workspace)
+        dashboard = studio.unlock("alex", "a-long-test-passphrase")
+
+        assert dashboard["database_encrypted"] is False
+        studio.lock()
 
 
 def test_capture_rejects_text_larger_than_core_ingestion_limit():

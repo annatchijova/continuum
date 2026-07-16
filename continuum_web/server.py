@@ -223,6 +223,7 @@ class Studio:
             "audit_events": summary["audit_trail_length"],
             "integrity": integrity["valid"],
             "hmac_checked": integrity["audit"]["hmac_checked"],
+            "database_encrypted": bool(agent._index and agent._index.db_key_hex),
             "role": self.role,
             "open": True,
         }
