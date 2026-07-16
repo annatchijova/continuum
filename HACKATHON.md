@@ -33,7 +33,9 @@ request, Continuum uses the OpenAI Agents SDK with `gpt-5.6` (on the Responses
 API path) to add a compassionate ChatGPT narration to a result. This is an
 optional presentation layer. It receives only the question, the deterministic
 answer, and the excerpts already selected by local retrieval; it uses
-`store=False` and disables SDK tracing.
+`store=False` and disables SDK tracing. Those values are serialized as untrusted
+reference data, so instructions found inside an imported memory cannot alter
+the narrator's role.
 
 The **Continuum agent contract** is intentionally restrictive:
 
