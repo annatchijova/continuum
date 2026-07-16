@@ -1,12 +1,78 @@
 # Continuum
 
-Continuum Studio is a local-first digital-legacy companion: a protected,
-navigable memory for the people who matter. It combines a polished web
-experience with a deterministic, auditable, encrypted core.
+*A private, cryptographically verifiable memory for the people you love.*
 
 Licensed under the [Apache License 2.0](LICENSE).
 
 ![Continuum Studio](https://img.shields.io/badge/status-hackathon%20prototype-173e3c)
+
+## The problem, stated plainly
+
+When someone dies, the people who loved them inherit two things at once: grief,
+and a hard drive. Wills, insurance policies, medical history, the password to
+the account that pays the mortgage, the one photo that explains a family
+story no document ever recorded — all of it sits scattered across files,
+folders, and devices, with no map and no order. Nobody grieving should also
+have to become a forensic investigator of their own family's life.
+
+The easy answer — "just point an AI at all the files and let people ask
+questions" — trades one problem for a worse one. A model that can quietly
+misread a document, invent a detail, or decide on its own who gets access to
+what is not trustworthy with a will, a diagnosis, or a house deed. Grief is
+not the moment to introduce a system that might be confidently wrong.
+
+Continuum's answer is to separate the two jobs. A deterministic, encrypted,
+audited core decides what exists, what it means, and who may see it. An AI —
+used only with explicit, per-request consent — may put that already-decided
+answer into gentle, human language. It is never asked to decide anything.
+The people left behind deserve clarity delivered with warmth, but the clarity
+itself has to be provable, not just plausible.
+
+## What Continuum actually does
+
+- **Understands a lifetime of documents.** Ingests text and classifies it by
+  domain (legal, medical, financial, property, professional, personal,
+  credentials, and more) with a deterministic rule-based classifier — no
+  model guesses at what a document *is*.
+- **Answers questions with sources, not vibes.** `legacy query "where is the
+  house contract?"` returns a ranked, cited answer from the owner's own
+  material. Every answer can show exactly which document produced it.
+- **Remembers the way people do.** A TF-IDF + STDP-inspired memory field
+  reinforces what gets recalled often and lets what doesn't fade toward
+  `FORGOTTEN` — never deleted, always auditable, never silently erased.
+- **Speaks only when invited to.** With `OPENAI_API_KEY` set and explicit,
+  per-question opt-in, GPT-5.6 may narrate the core's already-selected
+  evidence in plain language. It cannot unlock a vault, choose what counts as
+  evidence, rank a result, or grant access to anyone.
+- **Hands the household down safely.** Owners define heirs and the exact
+  condition that releases access to them — an inactivity period, a fixed
+  date, a pre-shared key, or a manual switch — evaluated locally, by the
+  core, never by a model.
+- **Survives the worst-case scenario.** If the owner cannot ever be reached
+  again, Shamir Secret Sharing lets `K` of `N` trusted people reconstruct
+  access together, while any `K-1` of them learn nothing. Nobody holds the
+  whole key alone.
+
+## The ethical line: AI narrates, it never decides
+
+This is not a slogan; it is an architectural boundary enforced in code and
+tested directly:
+
+- The deterministic core selects, ranks, classifies, and grants access
+  *before* any model is ever called. A model receives only the
+  already-decided answer and the excerpts the core chose — never raw,
+  unfiltered access to the vault.
+- Narration is opt-in per question, stateless, untraced (SDK tracing and
+  response storage are both disabled), and explicitly instructed to narrate
+  only what it was given — never to invent, reorder, omit, or add a fact,
+  and never to claim an access decision it did not make.
+- Swapping the narrator off changes only the *wording* of an answer, never
+  its *sources* or *whether it was allowed*. If a change to the narrator
+  could ever change a decision, that would be treated as a defect in the
+  architecture, not an acceptable trade-off.
+- The audit trail records that narration happened and how many sources were
+  involved — never the sensitive question itself, and never the narrated
+  text. Privacy holds even in the system's own logbook.
 
 ## Try the product
 
@@ -49,23 +115,6 @@ export OPENAI_API_KEY='...'
 pip install -e '.[agents]'
 python3 -m continuum_web.server
 ```
-
-## Hackathon session
-
-Codex session identifier:
-
-`019f685f-ad37-70c0-9be9-990001e4e9fe`
-
-This identifier is included for hackathon attribution and development
-traceability. It is not a credential and does not grant access to the
-repository or its data.
-
-Continuum is the evolution of the Digital Legacy prototype. A person can
-accumulate decades of wills, accounts, medical records, photographs, and
-professional knowledge. When they are gone, their heirs inherit a disk full of
-files with no map. Continuum turns that chaos into a navigable legacy: it
-classifies, indexes, encrypts, and—when access conditions are met—answers
-questions and delivers a prioritized guide.
 
 ## Design principles
 
@@ -181,6 +230,48 @@ wall-clock time-lock. These limitations are documented with IDs and rationale
 in [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md). Read it before trusting
 real data.
 
+## Earned the hard way: seven rounds of internal red-team
+
+Trust in a system that guards wills and medical records cannot rest on a
+README's word. Before Continuum carried its current name, its predecessor
+went through seven documented internal red-team rounds — each one abducting
+a plausible failure mode, deducing a concrete, checkable consequence, and
+confirming it by induction against the live code before calling it fixed.
+Every round below shipped a fix and a regression test; nothing was patched by
+softening a test until it passed.
+
+| Round | Scope | Representative findings |
+|---|---|---|
+| R1 | Internal baseline sweep, 8 findings | TOCTOU hash divergence on in-memory content; symlink traversal in directory ingestion; a non-constant-time passphrase comparison in the CLI |
+| R2 | Memory & audit semantics, 10 findings | Non-atomic vault sealing (a crash mid-`seal()` could strand the legacy); reinforce/forget with no auth or audit trail; silent semantic contradictions never surfaced to anyone |
+| R3 | Cryptographic consistency, 6 findings | `memory.db` living outside the chain of trust; unbounded score growth overflowing to `float('inf')`; a store-plus-audit atomicity gap |
+| R4 | Vault sealing | `seal()` failing open: a *wrong* passphrase could silently replace the vault and destroy custody |
+| R5 | Ciphertext structure | In-band signaling — the ciphertext's own prefix was valid, exploitable plaintext |
+| R6 | Search index | A legacy FTS5 search index surviving encryption with the plaintext still readable inside it |
+| R7 | Access policy & suppression | A second heir's key silently locking out every heir; an attacker able to flip a memory to `FORGOTTEN` outside the audit trail, invisible to both the heir and the integrity check |
+
+The R7 fixes are the two most recent, and both now ship with dedicated
+regression tests in `tests/test_security_r7.py`:
+
+- **Multi-heir lockout.** Access conditions default to requiring *every*
+  listed condition. Under the naive reading, registering a second heir's key
+  made the vault unopenable by *any* heir — the worst possible moment to
+  discover a lockout is after the owner is gone. Heir keys now form their own
+  OR-group: any registered heir's own key satisfies that part of the policy,
+  while the group still participates in whatever AND/OR the owner configured
+  for the other conditions.
+- **Invisible suppression.** A memory's `state` governs whether an heir can
+  ever see it again, but that field is unauthenticated metadata. Someone with
+  raw filesystem access to `memory.db` could flip a memory to `FORGOTTEN`
+  without the heir noticing and without the integrity check catching it. The
+  check now cross-references every `FORGOTTEN` memory against the audit
+  trail; a suppression with no matching `MEMORY_FORGOTTEN` event is flagged
+  as tampering, not silently trusted.
+
+This is why the security posture in this README is a claim about a system
+that has been attacked on paper, repeatedly, by its own builders — not a
+claim about a system nobody has yet tried to break.
+
 ## Tests
 
 ```bash
@@ -195,3 +286,13 @@ python -m pytest -q
 | `LEGACY_OWNER_ID` | Owner identifier |
 | `LEGACY_HMAC_KEY` | Hex HMAC key for the audit trail (recommended: at least 32 bytes) |
 | `LEGACY_HMAC_KEY_FILE` | Alternative path to a file containing the key bytes |
+
+## Hackathon session
+
+Codex session identifier:
+
+`019f685f-ad37-70c0-9be9-990001e4e9fe`
+
+This identifier is included for hackathon attribution and development
+traceability. It is not a credential and does not grant access to the
+repository or its data.
