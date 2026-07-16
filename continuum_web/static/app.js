@@ -10,17 +10,17 @@ async function api(path, payload = {}) {
 function toast(message, error = false) { const el = $("toast"); el.textContent = message; el.className = `toast show ${error ? "error" : ""}`; setTimeout(() => el.className = "toast", 4200); }
 function renderAnswer(container, result) {
   container.replaceChildren();
-  if (result.narration) {
-    const narration = document.createElement("p"); narration.className = "narration";
-    const label = document.createElement("b"); label.textContent = "CHATGPT GUIDE";
-    narration.append(label, document.createElement("br"), document.createTextNode(result.narration)); container.append(narration);
-  }
   const answer = document.createElement("p"); answer.textContent = result.answer; container.append(answer);
   if (result.sources.length) {
     const label = document.createElement("div"); label.className = "source-label"; label.textContent = "SOURCES FOUND";
     const list = document.createElement("ul");
     result.sources.forEach((source) => { const item = document.createElement("li"); const badge = document.createElement("span"); badge.textContent = categories[source.category] || source.category; item.append(badge, document.createTextNode(source.artifact ? source.artifact.split("/").pop() : source.excerpt)); list.append(item); });
     container.append(label, list);
+  }
+  if (result.narration) {
+    const narration = document.createElement("p"); narration.className = "narration";
+    const label = document.createElement("b"); label.textContent = "OPTIONAL CHATGPT NARRATION — NOT A SOURCE";
+    narration.append(label, document.createElement("br"), document.createTextNode(result.narration)); container.append(narration);
   }
 }
 function showStudio(data) {

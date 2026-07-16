@@ -184,6 +184,8 @@ def test_answer_renderer_treats_narration_and_sources_as_text():
     assert "function renderAnswer" in script
     assert "narration.append(label, document.createElement" in script
     assert "answer.innerHTML" not in script
+    assert script.index("container.append(label, list)") < script.index("if (result.narration)")
+    assert "OPTIONAL CHATGPT NARRATION — NOT A SOURCE" in script
 
 
 def test_http_500_response_does_not_include_exception_text():
