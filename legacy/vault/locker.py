@@ -1,31 +1,29 @@
 """
 legacy/vault/locker.py
 =======================
-Vault encrypted AES-256-GCM for the legado digital.
+AES-256-GCM encrypted vault for a digital legacy.
 
-the vault almacena the metadatos of the legado (index of artifacts,
-politica of acceso, lista of heirs) as JSON encrypted.
-the artifacts crudos NO is almacenan in the vault  only sus
-rutas and hashes. the vault is the index, no the store.
+The vault stores legacy metadata (artifact index, access policy, and heir list)
+as encrypted JSON. Raw artifacts are NOT stored in the vault; only their paths
+and hashes are stored. The vault is the index, not the store.
 
-Esquema v2  keyslots (style LUKS):
+v2 keyslot scheme (LUKS style):
 
-  the payload is encrypts with a DATA KEY aleatoria of 32 bytes that nunca
-  sale of the envelope in plaintext. the data key is "envuelve" (wrap) in uno o
-  more keyslots independientes:
+  The payload is encrypted with a random 32-byte DATA KEY that never leaves
+  the envelope in plaintext. The data key is wrapped in one or more independent
+  keyslots:
 
-    - slot "passphrase": data_key encrypted with AES-GCM under a key
-      derivada of the passphrase (PBKDF2-SHA256, 260 000 iteraciones).
-    - slot "recovery":   data_key encrypted with AES-GCM under a key of
-      recovery of 32 bytes (pensada for repartirse between custodios
-      with Shamir  ver legacy/core/shamir.py).
+    - slot "passphrase": data_key encrypted with AES-GCM under a key derived
+      from the passphrase (PBKDF2-SHA256, 260,000 iterations).
+    - slot "recovery":   data_key encrypted with a 32-byte recovery key,
+      intended for Shamir distribution among custodians (see
+      legacy/core/shamir.py).
 
-  Ventajas over v1 (a sola key derivada of the passphrase):
-    - rotar the passphrase = re-envolver a slot (rewrap), without re-encrypt
-      the payload ni invalidar the demas slots (the custodia sobrevive
-      to the rekey);
-    - the recovery by custodios is criptografica: without K shares the
-      recovery key does not exist in no lado.
+  Advantages over v1 (one key derived from the passphrase):
+    - rotating the passphrase rewraps one slot without re-encrypting the
+      payload or invalidating other slots (custody survives rekey);
+    - custodian recovery is cryptographic: without K shares, the recovery key
+      does not exist anywhere.
 
   {
     "version":    "2",
@@ -40,13 +38,13 @@ Esquema v2  keyslots (style LUKS):
     ]
   }
 
-Compatibilidad: open() reads envelopes v1 (formato original with the key
-derivada directamente of the passphrase). the primer seal() over a vault
-v1 it migra a v2 of forma transparente.
+Compatibility: open() reads v1 envelopes (the original format with a key
+derived directly from the passphrase). The first seal() on a v1 vault
+transparently migrates it to v2.
 
-the passphrase, the data key and the recovery key nunca is persisten in plaintext.
+The passphrase, data key, and recovery key are never persisted in plaintext.
 
-Dependencia: `cryptography` (pip install cryptography).
+Dependency: `cryptography` (`pip install cryptography`).
 """
 from __future__ import annotations
 
@@ -69,8 +67,7 @@ _KEY_LEN = 32   # 256 bits
 _NONCE_LEN = 12  # 96 bits  NIST recommendation for GCM
 _SALT_LEN = 32
 
-# Implementation note.
-# Implementation note.
+# Vault constants and authenticated-data domains.
 _PAYLOAD_AAD = b"legacy-vault-payload-v2"
 _SLOT_AAD = b"legacy-vault-keyslot-v2"
 
@@ -78,8 +75,8 @@ _SLOT_AAD = b"legacy-vault-keyslot-v2"
 def _require_crypto() -> None:
     if not _CRYPTO_AVAILABLE:
         raise RuntimeError(
-            "the paquete 'cryptography' is required for the vault. "
-            "install with: pip install cryptography"
+            "The 'cryptography' package is required for the vault. "
+            "Install it with: pip install cryptography"
         )
 
 
@@ -93,9 +90,7 @@ def _derive_key(passphrase: str, salt: bytes) -> bytes:
     )
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Keyslot wrapping and unwrapping.
 
 def _wrap_passphrase_slot(data_key: bytes, passphrase: str) -> Dict[str, Any]:
     salt = secrets.token_bytes(_SALT_LEN)
@@ -114,14 +109,14 @@ def _wrap_passphrase_slot(data_key: bytes, passphrase: str) -> Dict[str, Any]:
 
 def _wrap_recovery_slot(data_key: bytes, recovery_key: bytes) -> Dict[str, Any]:
     if len(recovery_key) != _KEY_LEN:
-        raise ValueError(f"La recovery key debe tener {_KEY_LEN} bytes.")
+        raise ValueError(f"The recovery key must be {_KEY_LEN} bytes.")
     nonce = secrets.token_bytes(_NONCE_LEN)
     wrapped = AESGCM(recovery_key).encrypt(nonce, data_key, _SLOT_AAD)
     return {"type": "recovery", "nonce": nonce.hex(), "wrapped": wrapped.hex()}
 
 
 def _unwrap_passphrase(envelope: Dict[str, Any], passphrase: str) -> bytes:
-    """Prueba all the slots of passphrase; VaultAuthError if ninguno opens."""
+    """Try all passphrase slots; raise VaultAuthError if none opens."""
     for slot in envelope.get("keyslots", []):
         if slot.get("type") != "passphrase":
             continue
@@ -140,7 +135,7 @@ def _unwrap_passphrase(envelope: Dict[str, Any], passphrase: str) -> bytes:
             )
         except Exception:
             continue
-    raise VaultAuthError("Passphrase incorrect o vault damaged.")
+    raise VaultAuthError("Incorrect passphrase or damaged vault.")
 
 
 def _unwrap_recovery(envelope: Dict[str, Any], recovery_key: bytes) -> bytes:
@@ -156,14 +151,14 @@ def _unwrap_recovery(envelope: Dict[str, Any], recovery_key: bytes) -> bytes:
         except Exception:
             continue
     raise VaultAuthError(
-        "Recovery key incorrect o the vault does not have slot of recovery."
+        "Incorrect recovery key or the vault has no recovery slot."
     )
 
 
 def _wrap_timelock_slot(
     data_key: bytes, squarings: int, modulus_bits: int
 ) -> Dict[str, Any]:
-    """the puzzle envuelve the data key directamente (su AEAD is the wrap)."""
+    """The puzzle wraps the data key directly; its AEAD is the wrap."""
     from legacy.core.timelock import create_puzzle
     return {"type": "timelock",
             "puzzle": create_puzzle(data_key, squarings, modulus_bits=modulus_bits)}
@@ -178,34 +173,32 @@ def _unwrap_timelock(envelope: Dict[str, Any], progress=None) -> bytes:
             return solve_puzzle(slot["puzzle"], progress=progress)
         except (TimeLockError, KeyError):
             continue
-    raise VaultAuthError("the vault does not have a slot time-lock valid.")
+    raise VaultAuthError("The vault has no valid time-lock slot.")
 
 
 class Vault:
     """
-    Vault encrypted AES-256-GCM with keyslots (v2).
+    AES-256-GCM encrypted vault with keyslots (v2).
 
-    vault_path : file .vault where is persiste the envelope.
-    if the file does not exist, the vault is empty and listo for crear.
+    vault_path : .vault file where the envelope is persisted.
+    If the file does not exist, the vault is empty and ready to create.
     """
 
     def __init__(self, vault_path: Path) -> None:
         _require_crypto()
         self._path = vault_path
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # File loading and atomic persistence.
 
     def _load_raw(self) -> Dict[str, Any]:
         if not self._path.exists():
-            raise VaultNotFoundError(f"Vault no encontrado: {self._path}")
+            raise VaultNotFoundError(f"Vault not found: {self._path}")
         raw = json.loads(self._path.read_text(encoding="utf-8"))
         _validate_envelope(raw)
         return raw
 
     def _write_raw(self, envelope: Dict[str, Any]) -> None:
-        # Implementation note.
+        # Write to a temporary file, then replace atomically.
         self._path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self._path.with_suffix(".tmp")
         tmp.write_text(json.dumps(envelope, indent=2), encoding="utf-8")
@@ -219,35 +212,32 @@ class Vault:
         try:
             plaintext = AESGCM(data_key).decrypt(nonce, ct + tag, _PAYLOAD_AAD)
         except Exception:
-            raise VaultAuthError("Passphrase incorrect o vault damaged.")
+            raise VaultAuthError("Incorrect passphrase or damaged vault.")
         actual_hash = hashlib.sha256(plaintext).hexdigest()
         if actual_hash != raw["vault_hash"]:
             raise VaultCorruptError(
-                f"vault_hash no coincide: esperado {raw['vault_hash'][:16]}…, "
-                f"obtenido {actual_hash[:16]}…"
+                f"vault_hash mismatch: expected {raw['vault_hash'][:16]}…, "
+                f"got {actual_hash[:16]}…"
             )
         return json.loads(plaintext.decode("utf-8"))
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Sealing and migration.
 
     def seal(self, data: Dict[str, Any], passphrase: str) -> None:
         """
-        encrypts and persiste the dict of data (envelope v2).
+        Encrypt and persist the data dictionary (v2 envelope).
 
-        over a vault v2 existente, the passphrase must open alguno of
-        sus slots: the data key and all the keyslots is preservan (the
-        custodia sobrevive a each re-sellado). over a v1, the passphrase
-        is valida and the envelope is migra a v2.
+        On an existing v2 vault, the passphrase must open one of its slots;
+        the data key and all keyslots are preserved (custody survives every
+        re-seal). On v1, the passphrase is validated and the envelope migrates
+        to v2.
 
-        FIX R4-001 (fail closed): seal over a envelope LEGIBLE with a
-        passphrase that no corresponde lanza VaultAuthError instead of
-        reemplazarlo  the semantica previous of overwrite silenciosa
-        destruia the payload and the slot of recovery (the shares of the
-        custodios quedaban inservibles without no ruido). the overwrite
-        only is allows if the envelope is corrupto o unreadable (camino of
-        recovery of desastre) o if the file does not exist.
+        FIX R4-001 (fail closed): sealing a READABLE envelope with a
+        non-matching passphrase raises VaultAuthError instead of replacing it.
+        The previous silent-overwrite behavior destroyed the payload and
+        recovery slot, leaving custodian shares unusable without warning.
+        Overwrite is allowed only when the envelope is corrupt or unreadable
+        (disaster-recovery path), or when the file does not exist.
         """
         plaintext = json.dumps(data, sort_keys=True, ensure_ascii=True).encode("utf-8")
         vault_hash = hashlib.sha256(plaintext).hexdigest()
@@ -259,16 +249,14 @@ class Vault:
             try:
                 raw = self._load_raw()
             except (VaultCorruptError, json.JSONDecodeError, OSError):
-                raw = None    # envelope unreadable  is allows replace
+                raw = None    # Unreadable envelope: replacement is allowed.
             if raw is not None:
                 if raw.get("version") == "2":
-                    # Implementation note.
+                    # Preserve the data key and every existing keyslot.
                     data_key = _unwrap_passphrase(raw, passphrase)
                     keyslots = raw["keyslots"]
                 else:
-                    # Implementation note.
-                    # Implementation note.
-                    # Implementation note.
+                    # Validate and migrate the legacy v1 envelope.
                     self._open_v1(raw, passphrase)
 
         if data_key is None:
@@ -287,15 +275,13 @@ class Vault:
             "keyslots": keyslots,
         })
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Opening and recovery.
 
     def open(self, passphrase: str) -> Dict[str, Any]:
         """
-        decrypts and returns the dict of data (v1 o v2).
-        Lanza VaultAuthError if the passphrase is incorrect.
-        Lanza VaultCorruptError if the envelope is damaged.
+        Decrypt and return the data dictionary (v1 or v2).
+        Raise VaultAuthError if the passphrase is incorrect.
+        Raise VaultCorruptError if the envelope is damaged.
         """
         raw = self._load_raw()
         if raw.get("version") == "1":
@@ -304,7 +290,7 @@ class Vault:
         return self._decrypt_payload(raw, data_key)
 
     def _open_v1(self, raw: Dict[str, Any], passphrase: str) -> Dict[str, Any]:
-        """Formato original: key derivada directamente of the passphrase."""
+        """Open the original format with a key derived from the passphrase."""
         salt = bytes.fromhex(raw["salt"])
         nonce = bytes.fromhex(raw["nonce"])
         ct = bytes.fromhex(raw["ciphertext"])
@@ -313,45 +299,41 @@ class Vault:
         try:
             plaintext = AESGCM(key).decrypt(nonce, ct + tag, None)
         except Exception:
-            raise VaultAuthError("Passphrase incorrect o vault damaged.")
+            raise VaultAuthError("Incorrect passphrase or damaged vault.")
         actual_hash = hashlib.sha256(plaintext).hexdigest()
         if actual_hash != raw["vault_hash"]:
             raise VaultCorruptError(
-                f"vault_hash no coincide: esperado {raw['vault_hash'][:16]}…, "
-                f"obtenido {actual_hash[:16]}…"
+                f"vault_hash mismatch: expected {raw['vault_hash'][:16]}…, "
+                f"got {actual_hash[:16]}…"
             )
         return json.loads(plaintext.decode("utf-8"))
 
     def open_with_recovery(self, recovery_key: bytes) -> Dict[str, Any]:
         """
-        decrypts the vault with the key of recovery (reconstruida by
-        the custodios via Shamir). only disponible in vaults v2 with slot
-        of recovery configurado.
+        Decrypt the vault with a recovery key reconstructed by custodians
+        through Shamir. Available only for v2 vaults with a recovery slot.
         """
         raw = self._load_raw()
         if raw.get("version") != "2":
             raise VaultAuthError(
-                "the vault is v1  does not have keyslots of recovery. "
-                "Abrilo with the passphrase for migrarlo."
+                "The vault is v1 and has no recovery keyslots. "
+                "Open it with the passphrase to migrate it."
             )
         data_key = _unwrap_recovery(raw, recovery_key)
         return self._decrypt_payload(raw, data_key)
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Recovery and time-lock keyslot management.
 
     def add_recovery_slot(self, passphrase: str, recovery_key: bytes) -> None:
         """
-        adds (o replaces) the slot of recovery. replace invalida
-        any reparto of shares previous  the custodios old remain
-        revocados of facto.
-        a vault v1 is migra a v2 in the proceso.
+        Add or replace the recovery slot. Replacing it invalidates any previous
+        share split; old custodians are effectively revoked. A v1 vault is
+        migrated to v2 during this process.
         """
         raw = self._load_raw()
         if raw.get("version") == "1":
             data = self._open_v1(raw, passphrase)
-            self.seal(data, passphrase)          # migra a v2
+            self.seal(data, passphrase)          # Migrate to v2.
             raw = self._load_raw()
 
         data_key = _unwrap_passphrase(raw, passphrase)
@@ -364,12 +346,12 @@ class Vault:
         self, passphrase: str, squarings: int, *, modulus_bits: int = 2048
     ) -> None:
         """
-        adds (o replaces) the slot time-lock: the data key remains ademas
-        recuperable resolviendo a puzzle of `squarings` cuadraturas
-        secuenciales (KL-011, componente offline). Migra v1v2 if does missing.
+        Add or replace the time-lock slot: the data key also remains recoverable
+        by solving a puzzle requiring `squarings` sequential squarings (KL-011,
+        offline component). Migrate v1 to v2 when needed.
 
-        NO replaces a the passphrase ni a the custodia  is a camino
-        ADICIONAL e independiente. Piso of trabajo, no reloj of pared (ver
+        This does NOT replace the passphrase or custody; it is an additional,
+        independent path. It provides a work floor, not a wall clock (see
         legacy/core/timelock.py).
         """
         raw = self._load_raw()
@@ -385,21 +367,21 @@ class Vault:
 
     def open_with_timelock(self, *, progress=None) -> Dict[str, Any]:
         """
-        decrypts the vault RESOLVIENDO the time-lock puzzle. slow by design
-        (T cuadraturas secuenciales). only in vaults v2 with slot time-lock.
+        Decrypt the vault by SOLVING the time-lock puzzle. Slow by design
+        (T sequential squarings). Available only for v2 vaults with a time-lock slot.
         """
         raw = self._load_raw()
         if raw.get("version") != "2":
-            raise VaultAuthError("the vault is v1  without slot time-lock.")
+            raise VaultAuthError("The vault is v1 and has no time-lock slot.")
         data_key = _unwrap_timelock(raw, progress=progress)
         return self._decrypt_payload(raw, data_key)
 
     def remove_timelock_slot(self, passphrase: str) -> bool:
-        """removes the slot time-lock. returns True if existed."""
+        """Remove the time-lock slot; return True if it existed."""
         raw = self._load_raw()
         if raw.get("version") != "2":
             return False
-        _unwrap_passphrase(raw, passphrase)      # autoriza
+        _unwrap_passphrase(raw, passphrase)      # Authorize the operation.
         before = len(raw["keyslots"])
         raw["keyslots"] = [s for s in raw["keyslots"] if s.get("type") != "timelock"]
         if len(raw["keyslots"]) == before:
@@ -411,14 +393,13 @@ class Vault:
         self, new_passphrase: str, *, progress=None
     ) -> None:
         """
-        Restablece the passphrase resolviendo the time-lock puzzle once 
-        the camino of the heirs for tomar posesion without the passphrase ni
-        custodios. Resuelve the puzzle (slow) and re-envuelve the slot of
-        passphrase with the data key recuperada.
+        Reset the passphrase by solving the time-lock puzzle once: the heir path
+        to take possession without the passphrase or custodians. Solve the
+        puzzle (slowly) and rewrap the passphrase slot with the recovered data key.
         """
         raw = self._load_raw()
         if raw.get("version") != "2":
-            raise VaultAuthError("the vault is v1  without slot time-lock.")
+            raise VaultAuthError("The vault is v1 and has no time-lock slot.")
         data_key = _unwrap_timelock(raw, progress=progress)
         slots = [s for s in raw["keyslots"] if s.get("type") != "passphrase"]
         slots.insert(0, _wrap_passphrase_slot(data_key, new_passphrase))
@@ -426,7 +407,7 @@ class Vault:
         self._write_raw(raw)
 
     def timelock_info(self) -> Optional[Dict[str, Any]]:
-        """parameters of the slot time-lock (squarings, modulus_bits) without resolverlo."""
+        """Return time-lock slot parameters without solving the puzzle."""
         if not self._path.exists():
             return None
         try:
@@ -444,11 +425,11 @@ class Vault:
         return "timelock" in self.info().get("keyslots", [])
 
     def remove_recovery_slot(self, passphrase: str) -> bool:
-        """removes the slot of recovery. returns True if existed."""
+        """Remove the recovery slot; return True if it existed."""
         raw = self._load_raw()
         if raw.get("version") != "2":
             return False
-        _unwrap_passphrase(raw, passphrase)      # autoriza the operation
+        _unwrap_passphrase(raw, passphrase)      # Authorize the operation.
         before = len(raw["keyslots"])
         raw["keyslots"] = [
             s for s in raw["keyslots"] if s.get("type") != "recovery"
@@ -460,10 +441,9 @@ class Vault:
 
     def rewrap_passphrase(self, old_passphrase: str, new_passphrase: str) -> None:
         """
-        Rota the passphrase re-envolviendo su keyslot  the payload and the
-        slot of recovery remain intactos (the custodia sobrevive).
-        a vault v1 is migra: is opens with the old and is re-seals v2 with
-        the new.
+        Rotate the passphrase by rewrapping its keyslot. The payload and
+        recovery slot remain intact (custody survives). A v1 vault is migrated
+        by opening it with the old passphrase and re-sealing it as v2 with the new one.
         """
         raw = self._load_raw()
         if raw.get("version") == "1":
@@ -482,35 +462,32 @@ class Vault:
         self, recovery_key: bytes, new_passphrase: str
     ) -> None:
         """
-        Restablece the passphrase usando the key of recovery  the
-        camino for the owner that the olvido o for the heirs
-        tras the reconstruccion by custodios.
+        Reset the passphrase using the recovery key: the path for an owner who
+        forgot it or for heirs after reconstruction by custodians.
         """
         raw = self._load_raw()
         if raw.get("version") != "2":
-            raise VaultAuthError("the vault is v1  without slot of recovery.")
+            raise VaultAuthError("The vault is v1 and has no recovery slot.")
         data_key = _unwrap_recovery(raw, recovery_key)
         slots = [s for s in raw["keyslots"] if s.get("type") != "passphrase"]
         slots.insert(0, _wrap_passphrase_slot(data_key, new_passphrase))
         raw["keyslots"] = slots
         self._write_raw(raw)
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Status and metadata.
 
     def exists(self) -> bool:
         return self._path.exists()
 
     def envelope_hash(self) -> Optional[str]:
-        """SHA-256 of the plaintext, without descifrarlo (of the field vault_hash)."""
+        """Return the plaintext SHA-256 without decrypting it (the vault_hash field)."""
         if not self._path.exists():
             return None
         raw = json.loads(self._path.read_text(encoding="utf-8"))
         return raw.get("vault_hash")
 
     def info(self) -> Dict[str, Any]:
-        """Metadatos of the envelope without decrypt nada."""
+        """Return envelope metadata without decrypting anything."""
         if not self._path.exists():
             return {"exists": False}
         try:
@@ -529,9 +506,7 @@ class Vault:
         return "recovery" in self.info().get("keyslots", [])
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Envelope validation and error types.
 
 def _validate_envelope(raw: Dict[str, Any]) -> None:
     version = raw.get("version")
@@ -540,10 +515,10 @@ def _validate_envelope(raw: Dict[str, Any]) -> None:
     elif version == "2":
         required = {"version", "nonce", "ciphertext", "tag", "vault_hash", "keyslots"}
     else:
-        raise VaultCorruptError(f"Versión de vault no soportada: {version!r}")
+        raise VaultCorruptError(f"Unsupported vault version: {version!r}")
     missing = required - set(raw.keys())
     if missing:
-        raise VaultCorruptError(f"Envelope inválido — campos faltantes: {missing}")
+        raise VaultCorruptError(f"Invalid envelope — missing fields: {missing}")
     if version == "2":
         slots = raw.get("keyslots")
         if not isinstance(slots, list) or not slots:
@@ -558,10 +533,10 @@ class VaultError(Exception):
     pass
 
 class VaultAuthError(VaultError):
-    """Passphrase incorrect o tag of autenticacion invalid."""
+    """Incorrect passphrase or invalid authentication tag."""
 
 class VaultCorruptError(VaultError):
-    """the envelope is estructuralmente damaged."""
+    """The envelope is structurally damaged."""
 
 class VaultNotFoundError(VaultError):
-    """does not exist the file of vault."""
+    """The vault file does not exist."""
