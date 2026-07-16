@@ -1,18 +1,17 @@
 """
 tests/test_review_fixes.py
 ==========================
-Regresión para los hallazgos del code review (2026-07-07).
+Regression tests for code-review findings (2026-07-07).
 
 Cubre cuatro correcciones:
-  RV-001  build-backend de pyproject.toml es válido.
+  RV-001  pyproject.toml build-backend is valid.
   RV-002  verify_legacy.py (standalone) y legacy/core/canonicalize.py
-          producen el MISMO hash canónico (paridad NFC).
-  RV-003  heartbeat() persiste el refresco de actividad sin lock() explícito.
-  RV-004  el matching de keywords no dispara falsos positivos a mitad de palabra.
+          produces the SAME canonical hash (NFC parity).
+  RV-003  heartbeat() persists the activity refresh without explicit lock().
+  RV-004  keyword matching does not trigger false positives inside words.
 
-Los fixtures acentuados se construyen con unicodedata.normalize("NFD", ...) en
-runtime para que sean NFD de forma determinista, independiente de cómo el editor
-haya guardado los literales.
+Accented fixtures use unicodedata.normalize("NFD", ...) at runtime so they are
+deterministically NFD regardless of how the editor stored literals.
 """
 from __future__ import annotations
 
@@ -41,18 +40,18 @@ def _nfd(text: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# RV-001 — build-backend válido
+# RV-001 — valid build-backend
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_pyproject_build_backend_is_valid():
     text = (_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert 'build-backend = "setuptools.build_meta"' in text
-    # el valor viejo apuntaba a un módulo inexistente
+    # The old value pointed to a nonexistent module.
     assert "setuptools.backends" not in text
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# RV-002 — paridad canónica librería vs verificador standalone
+# RV-002 — canonical parity between library and standalone verifier
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_canonicalize_nfc_parity_unit():
@@ -64,8 +63,8 @@ def test_canonicalize_nfc_parity_unit():
 
 
 def test_verify_legacy_accepts_valid_nfd_chain(tmp_path):
-    """Una cadena legítima con una cadena NFD (p. ej. nombre de archivo de
-    macOS) no debe ser reportada como manipulada por el verificador standalone."""
+    """A legitimate chain containing an NFD filename (for example, a macOS
+    filename) must not be reported as tampered by the standalone verifier."""
     nfd_artifact = _nfd("café_contrato.pdf")
     assert nfd_artifact != unicodedata.normalize("NFC", nfd_artifact)
 
@@ -73,17 +72,17 @@ def test_verify_legacy_accepts_valid_nfd_chain(tmp_path):
     at.append("ARTIFACT_INGESTED", actor="owner", artifact=nfd_artifact, detail="x")
     at.append("QUERY", actor="owner", detail="segunda")
 
-    # la librería la considera válida
+    # The library considers it valid.
     assert at.verify(hmac_key=b"").valid is True
 
-    # el standalone DEBE coincidir (antes del fix daba tampered_content)
+    # The standalone verifier MUST agree (the fix previously reported tampering).
     events = VL._load_events(tmp_path / "audit.db")
     result = VL.verify(events, hmac_key=None)
     assert result.valid is True, [(e.seq, e.kind) for e in result.errors]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# RV-003 — heartbeat persiste sin lock()
+# RV-003 — heartbeat persists without lock()
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_heartbeat_persists_activity_without_explicit_lock(tmp_path):
@@ -93,23 +92,23 @@ def test_heartbeat_persists_activity_without_explicit_lock(tmp_path):
     a.initialize("pw", policy=pol)
     a.lock("pw")
 
-    a.heartbeat("pw")   # sin lock() posterior
+    a.heartbeat("pw")   # no subsequent lock()
 
-    # instancia nueva → lee del disco
+    # A new instance reads from disk.
     b = LegacyAgent(tmp_path, "owner")
     b.open_owner("pw")
     la = b._index.policy["conditions"][0]["last_activity_iso"]
-    assert la != old, "el refresco de heartbeat no se persistió"
+    assert la != old, "heartbeat refresh was not persisted"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# RV-004 — sin falsos positivos de keyword a mitad de palabra
+# RV-004 — no false positives inside words
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_keyword_not_matched_midword():
     clf = DocumentClassifier()
-    r = clf.classify("Este documento trata sobre la sintaxis del lenguaje.")
-    # 'tax' es substring de 'sintaxis' pero NO debe contar como FINANCIAL
+    r = clf.classify("This document discusses language syntax.")
+    # 'tax' is a substring of 'syntax' but must NOT count as FINANCIAL.
     assert r.scores[DocCategory.FINANCIAL] == 0
     assert r.category == DocCategory.UNKNOWN
 

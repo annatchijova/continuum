@@ -1,8 +1,8 @@
 """
 tests/test_rekey.py
 ====================
-rotation of passphrase v2: conversion of artifacts a store key + rewrap
-of the keyslot, with recovery of estados parciales (crash simulado).
+V2 passphrase rotation: artifact conversion to a store key plus keyslot
+rewrap, including recovery from partial states (simulated crashes).
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def agent(tmp_path):
     a = LegacyAgent(tmp_path / "data", "anna")
     a.initialize(OLD)
     for i, text in enumerate([
-        "testamento and last voluntad ante the notario",
+        "will and last wishes before the notary",
         "extracto bancario with saldo and movimientos of the cuenta",
     ]):
         src = tmp_path / f"doc{i}.txt"
@@ -31,19 +31,17 @@ def agent(tmp_path):
     return a
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Basic rekey behavior.
 
 def test_rekey_rotates_vault_and_artifacts_stay_restorable(agent, tmp_path):
     agent.rekey(OLD, NEW)
     agent.lock(NEW)
 
     fresh = LegacyAgent(tmp_path / "data", "anna")
-    # Implementation note.
+    # The vault remains readable after rotation.
     with pytest.raises(VaultAuthError):
         fresh.open_owner(OLD)
-    # Implementation note.
+    # Archived artifacts remain restorable.
     fresh.open_owner(NEW)
     for h in fresh._store.list_hashes():
         assert fresh.verify_artifact(h)
@@ -100,8 +98,8 @@ def test_heir_key_survives_rekey(agent, tmp_path):
 
 
 def test_custody_survives_rekey(agent, tmp_path):
-    """the property CENTRAL of V2: the shares of custodios repartidos
-    before of the rekey siguen recuperando the vault after."""
+    """Central v2 property: shares distributed before rekey still recover
+    the vault afterward."""
     shares = agent.setup_custody(OLD, shares=5, threshold=3)
     agent.lock(OLD)
 
@@ -119,25 +117,22 @@ def test_rekey_rejects_empty_new_passphrase(agent):
         agent.rekey(OLD, "")
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Crash-recovery cases.
 
 def test_rerun_after_crash_before_rewrap(agent, tmp_path):
-    """Crash after of convertir artifacts pero before of the rewrap:
-    vault=old (with store key), artifacts=v2. Re-correr complete.
-    is adds a artifact v1 heredado (pre-0.3) for that the conversion
-    tenga trabajo real."""
-    h_legacy = agent._store.put_bytes(b"document heredado v1", OLD)
+    """Crash after converting artifacts but before rewrap: the vault uses the
+    old passphrase and artifacts are v2. Rerunning completes the work. Add a
+    legacy v1 artifact (pre-0.3) so conversion has real work."""
+    h_legacy = agent._store.put_bytes(b"legacy v1 document", OLD)
     assert agent._store.envelope_version(h_legacy) == "1"
 
-    # Implementation note.
+    # Convert the legacy artifact before the simulated crash.
     key = agent._ensure_store_key(OLD)
     agent._store.convert_to_key(OLD, key)
     agent.lock(OLD)
 
     fresh = LegacyAgent(tmp_path / "data", "anna")
-    stats = fresh.rekey(OLD, NEW)        # re-corrida: todo already convertido
+    stats = fresh.rekey(OLD, NEW)        # rerun: everything already converted
     assert stats == {"converted": 0, "skipped": 3}
 
     final = LegacyAgent(tmp_path / "data", "anna")
@@ -146,10 +141,10 @@ def test_rerun_after_crash_before_rewrap(agent, tmp_path):
 
 
 def test_rerun_after_crash_mid_conversion(agent, tmp_path):
-    """Crash with the conversion a medias: a v1 convertido a mano, another
-    v1 pendiente. the re-corrida convierte it that missing."""
-    h1 = agent._store.put_bytes(b"document heredado uno", OLD)
-    h2 = agent._store.put_bytes(b"document heredado dos", OLD)
+    """Crash during conversion: one v1 artifact was converted manually and
+    another remains pending. Rerunning converts the missing artifact."""
+    h1 = agent._store.put_bytes(b"legacy document one", OLD)
+    h2 = agent._store.put_bytes(b"legacy document two", OLD)
 
     key = agent._ensure_store_key(OLD)
     data = agent._store.get(h1, OLD)
@@ -158,7 +153,7 @@ def test_rerun_after_crash_mid_conversion(agent, tmp_path):
 
     fresh = LegacyAgent(tmp_path / "data", "anna")
     stats = fresh.rekey(OLD, NEW)
-    assert stats == {"converted": 1, "skipped": 3}       # h2 convertido
+    assert stats == {"converted": 1, "skipped": 3}       # h2 converted
     assert fresh._store.envelope_version(h2) == "2"
     fresh2 = LegacyAgent(tmp_path / "data", "anna")
     fresh2.open_owner(NEW)
@@ -166,18 +161,17 @@ def test_rerun_after_crash_mid_conversion(agent, tmp_path):
 
 
 def test_store_key_persisted_before_any_conversion(agent, tmp_path):
-    """the store key is seals in the vault before of convertir the primer
-    artifact  a crash inmediatamente after of _ensure_store_key no
-    deja artifacts indescifrables."""
+    """The store key is sealed before converting the first artifact; a crash
+    immediately after _ensure_store_key leaves no artifact unreadable."""
     agent._ensure_store_key(OLD)
-    # Implementation note.
+    # Simulate a crash immediately after persisting the store key.
     fresh = LegacyAgent(tmp_path / "data", "anna")
     fresh.open_owner(OLD)
-    assert fresh._index.store_key_hex, "store key no persistida"
+    assert fresh._index.store_key_hex, "store key was not persisted"
 
 
 def test_store_convert_aborts_on_corrupt_artifact(tmp_path):
-    """a artifact that no decrypts aborta the conversion (fail closed)."""
+    """An artifact that cannot decrypt aborts conversion (fail closed)."""
     import secrets as _s
     store = ArtifactStore(tmp_path / "artifacts")
     h = store.put_bytes(b"content", OLD)
