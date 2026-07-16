@@ -20,9 +20,7 @@ def trail_hmac(tmp_path):
     return AuditTrail(tmp_path / "audit_hmac.db", hmac_key=b"x" * 32)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Append, filtering, and length behavior.
 
 def test_append_and_read(trail):
     trail.append("VAULT_CREATED", actor="owner_1")
@@ -71,9 +69,7 @@ def test_tip_hash_changes_on_append(trail):
     assert h0 != h1
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Chain verification behavior.
 
 def test_verify_valid_chain(trail):
     trail.append("VAULT_CREATED", actor="o")
@@ -98,13 +94,13 @@ def test_tampered_event_detected(tmp_path):
     trail.append("VAULT_CREATED", actor="owner")
     trail.append("QUERY", actor="heir", detail="original query")
 
-    # Implementation note.
+    # Tamper with an event directly in SQLite.
     conn = sqlite3.connect(tmp_path / "t.db")
     conn.execute("UPDATE audit_events SET detail='TAMPERED' WHERE seq=2")
     conn.commit()
     conn.close()
 
-    # Implementation note.
+    # Reopen the trail and verify the modified database.
     trail2 = AuditTrail(tmp_path / "t.db", hmac_key=b"")
     result = trail2.verify(hmac_key=b"")
     assert not result.valid
@@ -117,9 +113,7 @@ def test_verify_empty_chain(trail):
     assert result.length == 0
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Persistence across instances.
 
 def test_chain_continues_across_instances(tmp_path):
     """Sequence and prev_hash must continue correctly after reopening the trail."""
@@ -127,7 +121,7 @@ def test_chain_continues_across_instances(tmp_path):
     t1.append("VAULT_CREATED", actor="o")
     t1.append("ARTIFACT_INGESTED", actor="o")
 
-    # Implementation note.
+    # Continue the existing chain after reopening.
     t2 = AuditTrail(tmp_path / "shared.db", hmac_key=b"")
     t2.append("QUERY", actor="h")
 

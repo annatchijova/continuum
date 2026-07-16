@@ -1,8 +1,7 @@
 """
 tests/test_hash_chain.py
 =========================
-Tests of the hash chain  verificacion, deteccion of manipulacion,
-HMAC dual layer, and casos of borde.
+Hash-chain verification, tamper detection, dual-layer HMAC, and edge cases.
 """
 import pytest
 from legacy.core.hash_chain import (
@@ -16,9 +15,7 @@ from legacy.core.hash_chain import (
 )
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Canonical hashing behavior.
 
 def test_canonical_hash_deterministic():
     payload = {"a": 1, "b": "hello", "c": True, "d": None}
@@ -34,15 +31,13 @@ def test_canonical_hash_key_order_independent():
 
 
 def test_canonical_hash_type_sensitive():
-    # Implementation note.
+    # Integer and boolean values must remain type-sensitive.
     h_int = canonical_hash({"v": 1})
     h_bool = canonical_hash({"v": True})
     assert h_int != h_bool
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Chain construction and verification.
 
 def _build_chain(n: int, hmac_key=None):
     links = []
@@ -77,19 +72,17 @@ def test_empty_chain():
     assert result.length == 0
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Tamper and structural failure detection.
 
 def test_tampered_content_detected():
     links = _build_chain(3)
-    # Implementation note.
+    # Change payload while retaining the old entry hash.
     original = links[1]
     tampered_payload = {**original.payload, "data": 9999}
     links[1] = ChainLink(
         seq=original.seq,
         prev_hash=original.prev_hash,
-        entry_hash=original.entry_hash,   # hash old, payload new  detectable
+        entry_hash=original.entry_hash,   # old hash with new payload
         payload=tampered_payload,
         entry_hmac=original.entry_hmac,
     )
@@ -101,7 +94,7 @@ def test_tampered_content_detected():
 
 def test_deleted_link_detected():
     links = _build_chain(5)
-    # Implementation note.
+    # Remove one link from the sequence.
     reduced = [l for l in links if l.seq != 3]
     result = verify_chain(reduced)
     assert not result.valid
@@ -111,9 +104,9 @@ def test_deleted_link_detected():
 
 def test_inserted_link_detected():
     links = _build_chain(3)
-    # Implementation note.
+    # Insert a forged link into the sequence.
     fake = build_link(2, links[0].entry_hash, {"event": "injected"})
-    # Implementation note.
+    # The sequence now contains a forged link.
     mixed = [links[0], fake, links[1], links[2]]
     result = verify_chain(mixed)
     assert not result.valid
@@ -122,7 +115,7 @@ def test_inserted_link_detected():
 def test_broken_linkage_detected():
     links = _build_chain(3)
     original = links[2]
-    # Implementation note.
+    # Break the previous-hash linkage.
     links[2] = ChainLink(
         seq=original.seq,
         prev_hash="0" * 64,   # prev_hash incorrect
@@ -136,11 +129,11 @@ def test_broken_linkage_detected():
 
 def test_recomputed_chain_without_hmac_passes():
     """
-    a attacker that recomputa toda the chain without HMAC no is detectable
-    by SHA-256 only. Documentado and esperado.
+    An attacker who recomputes the entire chain without HMAC is not detectable
+    with SHA-256 alone. This is documented and expected.
     """
     links = _build_chain(3)
-    # Implementation note.
+    # Recompute every link with modified content.
     new_links = []
     prev = GENESIS_HASH
     for i, link in enumerate(links):
@@ -148,19 +141,19 @@ def test_recomputed_chain_without_hmac_passes():
         new_link = build_link(i + 1, prev, tampered_payload)
         new_links.append(new_link)
         prev = new_link.entry_hash
-    # Implementation note.
+    # A freshly recomputed unsigned chain is internally valid.
     result = verify_chain(new_links)
     assert result.valid
 
 
 def test_recomputed_chain_with_hmac_fails():
     """
-    with HMAC, the attacker no can recomputar the entry_hmac without the key.
+    With HMAC, an attacker cannot recompute entry_hmac without the key.
     """
     key = b"secret_key_32bytes_padded_xxxxxx"
     links = _build_chain(3, hmac_key=key)
 
-    # Implementation note.
+    # Recompute links without the HMAC key.
     new_links = []
     prev = GENESIS_HASH
     for i, link in enumerate(links):
@@ -175,15 +168,13 @@ def test_recomputed_chain_with_hmac_fails():
     assert len(result.hmac_failures) >= 1
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Error accumulation behavior.
 
 def test_accumulates_all_errors():
-    """verify_chain no is detiene in the primer error  reporta all."""
+    """verify_chain must report all errors instead of stopping at the first."""
     links = _build_chain(5)
 
-    # Implementation note.
+    # Tamper with multiple links.
     for i in [1, 3]:  # indices 0-based
         original = links[i]
         tampered_payload = {**original.payload, "data": -1}
@@ -196,16 +187,14 @@ def test_accumulates_all_errors():
 
     result = verify_chain(links)
     assert not result.valid
-    # Implementation note.
+    # Both tampered links must be reported.
     assert len(result.tampered_content) >= 2
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Missing-HMAC behavior.
 
 def test_hmac_absent_flagged():
-    """link without entry_hmac when is verifica with key  ruling HMAC."""
+    """A link without entry_hmac fails verification when an HMAC key is supplied."""
     key = b"k" * 32
     links = _build_chain(3)  # construido without HMAC
     result = verify_chain(links, hmac_key=key)
