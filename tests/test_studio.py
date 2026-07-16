@@ -214,7 +214,16 @@ def test_existing_unencrypted_vault_is_reported_without_migration():
         dashboard = studio.unlock("alex", "a-long-test-passphrase")
 
         assert dashboard["database_encrypted"] is False
+        assert dashboard["heir_policy_configured"] is False
         studio.lock()
+
+
+def test_new_studio_workspace_reports_absent_heir_policy_without_adding_one():
+    with TemporaryDirectory() as directory:
+        studio = Studio(Path(directory) / "legacy")
+        dashboard = studio.create("alex", "a-long-test-passphrase")
+
+        assert dashboard["heir_policy_configured"] is False
 
 
 def test_capture_rejects_text_larger_than_core_ingestion_limit():

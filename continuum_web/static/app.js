@@ -32,8 +32,11 @@ function showStudio(data) {
   $("auditCount").textContent = data.audit_events;
   $("integrityText").textContent = data.integrity ? (data.hmac_checked ? "HMAC verified" : "hash-only") : "needs attention";
   $("integrityDot").className = `integrity-dot ${data.integrity ? (data.hmac_checked ? "integrity-strong" : "integrity-limited") : "integrity-failed"}`;
-  $("securityNote").hidden = data.database_encrypted;
-  $("securityNote").textContent = data.database_encrypted ? "" : "Memory database encryption is not enabled for this existing vault. Run legacy encrypt-db before relying on at-rest confidentiality.";
+  const securityMessages = [];
+  if (!data.database_encrypted) securityMessages.push("Memory database encryption is not enabled for this existing vault. Run legacy encrypt-db before relying on at-rest confidentiality.");
+  if (!data.heir_policy_configured) securityMessages.push("No heir access policy is configured. Anyone who has the vault passphrase can request the heir path.");
+  $("securityNote").hidden = securityMessages.length === 0;
+  $("securityNote").textContent = securityMessages.join(" ");
   const heirView = data.role === "heir"; $("captureCard").hidden = heirView;
   $("subheading").textContent = heirView ? "You have read-only access to the verified legacy." : "Your private memory is clear, connected and ready when it matters.";
   $("navStatus").textContent = `${data.total_artifacts} protected memories`;

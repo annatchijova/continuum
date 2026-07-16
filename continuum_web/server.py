@@ -224,6 +224,7 @@ class Studio:
             "integrity": integrity["valid"],
             "hmac_checked": integrity["audit"]["hmac_checked"],
             "database_encrypted": bool(agent._index and agent._index.db_key_hex),
+            "heir_policy_configured": bool(agent._index and agent._index.policy),
             "role": self.role,
             "open": True,
         }
