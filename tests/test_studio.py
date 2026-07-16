@@ -61,6 +61,23 @@ def test_spanish_product_and_judge_briefing_have_independent_entrypoints():
     assert "NÚCLEO DETERMINISTA / AUTORIDAD" in briefing_script
 
 
+def test_static_deployment_previews_are_bilingual_and_make_no_api_requests():
+    root = Path(__file__).parents[1] / "continuum_web/static"
+    product = (root / "preview.html").read_text()
+    product_script = (root / "preview.js").read_text()
+    briefing = (root / "briefing.html").read_text()
+    briefing_script = (root / "briefing.js").read_text()
+
+    assert 'href="/styles.css"' in product
+    assert 'id="languageToggle"' in product
+    assert 'data-en="Static preview · no personal data"' in product
+    assert "fetch(" not in product + product_script
+    assert 'href="/judges.css"' in briefing
+    assert 'id="languageToggle"' in briefing
+    assert 'data-en="THE PRODUCT THESIS"' in briefing
+    assert "fetch(" not in briefing + briefing_script
+
+
 def test_demo_workspace_is_searchable_and_auditable():
     with TemporaryDirectory() as directory, patch("continuum_web.narrator.enabled", return_value=False):
         root = Path(directory) / "workspace"
