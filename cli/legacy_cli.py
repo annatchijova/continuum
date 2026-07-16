@@ -1,10 +1,9 @@
-# Implementation note.
 """
-cli/legacy_cli.py  shim of compatibilidad.
+cli/legacy_cli.py  compatibility shim.
 
-the implementation vive in `legacy.cli` (instalable as console script
-`legacy` via pyproject). Este file exists for no break invocaciones
-historicas: `python3 cli/legacy_cli.py ...` sigue funcionando.
+The implementation lives in `legacy.cli` (installable as the `legacy`
+console script via pyproject). This file preserves historical invocations:
+`python3 cli/legacy_cli.py ...` continues to work.
 """
 import sys
 from pathlib import Path
