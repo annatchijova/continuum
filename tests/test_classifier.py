@@ -16,9 +16,7 @@ def clf():
     return DocumentClassifier()
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Determinism and score types.
 
 def test_deterministic(clf):
     text = "This is a mortgage contract for the property located at Evergreen Avenue."
@@ -30,15 +28,13 @@ def test_deterministic(clf):
 
 
 def test_scores_are_fractions(clf):
-    text = "testamento poder notarial escritura contract"
+    text = "will power of attorney notarial deed contract"
     result = clf.classify(text)
     for score in result.scores.values():
         assert isinstance(score, Fraction)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Category classification.
 
 def test_legal_document(clf):
     text = (
@@ -47,7 +43,7 @@ def test_legal_document(clf):
         "the company in all judicial and extrajudicial acts. "
         "This will expresses the last wishes."
     )
-    result = clf.classify(text, filename="poder_notarial.pdf")
+    result = clf.classify(text, filename="power_of_attorney.pdf")
     assert result.category == DocCategory.LEGAL
     assert result.confidence in ("HIGH", "MEDIUM")
 
@@ -95,9 +91,7 @@ def test_empty_text(clf):
     assert result.category == DocCategory.UNKNOWN
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Empty and extension-based classification.
 
 def test_image_classified_as_media(clf):
     result = clf.classify("", filename="vacation_photo.jpg")
@@ -110,12 +104,10 @@ def test_excel_gets_financial_hint(clf):
     assert result.category == DocCategory.FINANCIAL
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Signal and hash behavior.
 
 def test_signals_are_recorded(clf):
-    text = "testamento escritura contract poder notarial"
+    text = "will deed contract power of attorney notarial"
     result = clf.classify(text)
     assert len(result.signals) > 0
     legal_signals = [s for s in result.signals if s.category == DocCategory.LEGAL]
@@ -130,9 +122,7 @@ def test_content_hash_is_sha256(clf):
     assert result.content_hash == expected
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Score precision.
 
 def test_no_float_in_scores(clf):
     """The decision path must not contain floats."""
