@@ -46,6 +46,21 @@ def test_judge_briefing_is_a_separate_interactive_local_page():
     assert "replaceChildren" in script
 
 
+def test_spanish_product_and_judge_briefing_have_independent_entrypoints():
+    root = Path(__file__).parents[1] / "continuum_web/static"
+    product = (root / "es.html").read_text()
+    product_script = (root / "app.es.js").read_text()
+    briefing = (root / "jueces.html").read_text()
+    briefing_script = (root / "jueces.js").read_text()
+
+    assert 'lang="es"' in product
+    assert 'src="/app.es.js"' in product
+    assert "Workspace criptográfico local" in product_script
+    assert 'href="/es.html"' in briefing
+    assert 'src="/jueces.js"' in briefing
+    assert "NÚCLEO DETERMINISTA / AUTORIDAD" in briefing_script
+
+
 def test_demo_workspace_is_searchable_and_auditable():
     with TemporaryDirectory() as directory, patch("continuum_web.narrator.enabled", return_value=False):
         root = Path(directory) / "workspace"
