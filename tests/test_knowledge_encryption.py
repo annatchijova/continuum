@@ -1,12 +1,13 @@
 """
 tests/test_knowledge_encryption.py
 ===================================
-KL-001b: encrypted at rest of knowledge.db with search in memory.
+KL-001b: knowledge.db encryption at rest with in-memory search.
 
-each test defiende a invariante and is pone rojo if the encrypted is rompe.
-Adversarial: opacidad in disco (content and source_path), ilegibilidad without
-key, migracion with scrub, dedup, and composition with the agente (the db_key
-compartida encrypts ambas bases and sobrevive to the rekey/recovery).
+Each test defends an invariant and fails if encryption is broken.
+Adversarial coverage includes disk opacity (content and source_path),
+unreadability without the key, migration with scrubbing, deduplication, and
+agent composition (the shared db_key encrypts both databases and survives
+rekey and recovery).
 """
 from __future__ import annotations
 
@@ -19,32 +20,30 @@ from legacy.knowledge.extractor import KnowledgeBase, KnowledgeDomain
 from legacy.agent.memory_agent import LegacyAgent
 
 KEY = secrets.token_bytes(32)
-TXT = ("protocol of treatment for pacientes with diagnosis of hipertension "
-       "arterial: seguimiento clinical and ajuste of dose. Marcador zzyzx plugh.")
-SRC = "/home/anna/historia_clinica_confidencial.txt"
+TXT = ("Protocol of treatment for patients with arterial hypertension diagnosis: "
+       "clinical follow-up and dosage adjustment. Marker zzyzx plugh.")
+SRC = "/home/olga/confidential_clinical_history.txt"
 
 
 def _blob(tmp_path, glob="k.db*") -> bytes:
     return b"".join(p.read_bytes() for p in tmp_path.glob(glob))
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Disk-opacity tests.
 
 def test_content_and_source_path_not_plaintext_on_disk(tmp_path):
     kb = KnowledgeBase(tmp_path / "k.db", db_key=KEY)
     kb.extract_and_store(TXT, source_path=SRC)
     blob = _blob(tmp_path)
-    for secret in (b"treatment", b"pacientes", b"zzyzx", b"plugh",
-                   b"historia_clinica_confidencial"):
+    for secret in (b"treatment", b"patients", b"zzyzx", b"plugh",
+                   b"confidential_clinical_history"):
         assert secret not in blob, secret
 
 
 def test_search_transparent_with_key(tmp_path):
     kb = KnowledgeBase(tmp_path / "k.db", db_key=KEY)
     kb.extract_and_store(TXT, source_path=SRC)
-    res = kb.search("treatment pacientes zzyzx")
+    res = kb.search("treatment patients zzyzx")
     assert res and res[0].domain == KnowledgeDomain.MEDICINE
     assert "treatment" in res[0].content
     assert res[0].source_path == SRC          # source_path decrypted
@@ -55,7 +54,7 @@ def test_without_key_reveals_nothing(tmp_path):
     blind = KnowledgeBase(tmp_path / "k.db")           # without a key
     assert blind.search("treatment") == []
     assert blind.by_domain(KnowledgeDomain.MEDICINE) == []
-    # Implementation note.
+    # Row count remains visible while encrypted fields remain opaque.
     assert blind.stats()["total"] == 1
 
 
@@ -65,9 +64,7 @@ def test_wrong_key_reveals_nothing(tmp_path):
     assert other.search("treatment") == []
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Migration and deduplication tests.
 
 def test_dedup_survives_encryption(tmp_path):
     kb = KnowledgeBase(tmp_path / "k.db", db_key=KEY)
@@ -82,10 +79,10 @@ def test_migrate_plaintext_db_scrubs_residual(tmp_path):
     enc = KnowledgeBase(tmp_path / "k.db", db_key=KEY)
     assert enc.migrate_encryption() == {"migrated": 1, "skipped": 0}
     assert enc.encryption_status()["encrypted"] == 1
-    # Implementation note.
+    # A second insert of the same content is deduplicated by content hash.
     blob = _blob(tmp_path)
     assert b"zzyzx" not in blob and SRC.encode() not in blob
-    assert enc.search("treatment zzyzx")              # sigue buscable
+    assert enc.search("treatment zzyzx")              # remains searchable
 
 
 def test_migrate_is_rerunnable(tmp_path):
@@ -101,29 +98,27 @@ def test_migrate_requires_key(tmp_path):
         plain.migrate_encryption()
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Agent composition tests.
 
 def test_encrypt_database_covers_knowledge(tmp_path):
     a = LegacyAgent(tmp_path / "data", "anna")
     a.initialize("pw")
     src = tmp_path / "notas.txt"
     src.write_text(TXT, encoding="utf-8")
-    a.ingest(src, extract_knowledge=True)               # crea knowledge.db
+    a.ingest(src, extract_knowledge=True)               # creates knowledge.db
     stats = a.encrypt_database("pw")
     assert stats["knowledge"]["migrated"] == 1
-    # Implementation note.
+    # The encrypted knowledge database must not expose its marker.
     blob = _blob(tmp_path / "data", "knowledge.db*")
     assert b"zzyzx" not in blob
-    # Implementation note.
+    # The encrypted knowledge database remains searchable.
     assert a.knowledge.search("treatment zzyzx")
 
 
 def test_heir_reads_encrypted_knowledge_after_recovery(tmp_path):
-    """INVARIANTE of composition: tras recover by custodios, the heir
-    can consultar the database of conocimiento encrypted. Mutacion that atrapa:
-    _apply_db_key no propaga the key to the KnowledgeBase."""
+    """Composition invariant: after custodian recovery, the heir can query
+    the encrypted knowledge database. This catches failures to propagate the
+    key to KnowledgeBase in _apply_db_key."""
     a = LegacyAgent(tmp_path / "data", "anna")
     a.initialize("pw")
     src = tmp_path / "notas.txt"
@@ -139,8 +134,8 @@ def test_heir_reads_encrypted_knowledge_after_recovery(tmp_path):
 
 
 def _add_legacy_fts(db_path, entry):
-    """Simula a knowledge.db of <0.6.0: crea and puebla the index FTS5
-    external-content with the content in plaintext (as did the code old)."""
+    """Simulate a knowledge.db from before 0.6.0 with a legacy FTS5
+    external-content index containing plaintext, as the old code did."""
     import json
     conn = sqlite3.connect(db_path)
     conn.executescript(
@@ -158,43 +153,41 @@ def _add_legacy_fts(db_path, entry):
 
 
 def test_r6_001_encrypt_removes_legacy_fts_plaintext(tmp_path):
-    """R6-001 (trust-boundary gap): a knowledge.db heredada of <0.6.0 tiene
-    the index FTS5 with the terms of the content in plaintext, fuera of the boundary
-    of encrypted. `encrypt-db` must dropear ese index and clean sus pages.
+    """R6-001 (trust-boundary gap): a knowledge.db from before 0.6.0 contains
+    an FTS5 index with plaintext content terms outside the encryption boundary.
+    `encrypt-db` must drop that index and scrub its pages.
 
-    Evidencia of teeth (induccion before/after contra HEAD pre-fix): before of the
-    fix 'zzyzxterm' sobrevivia in the .db tras encrypt; with the fix, no. without the
-    DROP + VACUUM este test is pone rojo (the term of the index sobrevive)."""
+    The marker must not survive encryption after DROP plus VACUUM."""
     plain = KnowledgeBase(tmp_path / "k.db")
     e = plain.extract_and_store(
-        TXT + " marcador zzyzxterm irrepetible", source_path=SRC
+        TXT + " unique marker zzyzxterm", source_path=SRC
     )
     _add_legacy_fts(tmp_path / "k.db", e)
-    # Implementation note.
+    # The legacy index initially exposes the marker.
     assert b"zzyzxterm" in _blob(tmp_path)
 
     enc = KnowledgeBase(tmp_path / "k.db", db_key=KEY)
     enc.migrate_encryption()
 
-    # Implementation note.
+    # Encryption must remove the legacy index and its plaintext.
     assert b"zzyzxterm" not in _blob(tmp_path)
     with sqlite3.connect(tmp_path / "k.db") as c:
         tables = {r[0] for r in c.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
     assert not any(t.startswith("knowledge_fts") for t in tables)
-    # Implementation note.
+    # The legacy index must be removed after encryption.
     assert enc.search("treatment zzyzxterm")
 
 
 def test_r6_001_via_agent_encrypt_database(tmp_path):
-    """the same gap by the camino real of the agente: ingest --knowledge in a
-    version old, luego encrypt-db."""
+    """The same gap through the agent path: ingest with knowledge enabled in
+    a legacy layout, then run encrypt-db."""
     a = LegacyAgent(tmp_path / "data", "anna")
     a.initialize("pw")
     src = tmp_path / "notas.txt"
-    src.write_text(TXT + " marcador zzyzxterm irrepetible", encoding="utf-8")
+    src.write_text(TXT + " unique marker zzyzxterm", encoding="utf-8")
     a.ingest(src, extract_knowledge=True)
-    # Implementation note.
+    # Add a legacy plaintext FTS index.
     entry = a.knowledge.search("treatment")[0]
     _add_legacy_fts(tmp_path / "data" / "knowledge.db", entry)
     assert b"zzyzxterm" in _blob(tmp_path / "data", "knowledge.db*")

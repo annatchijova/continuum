@@ -1,7 +1,7 @@
 """
 tests/test_knowledge.py
 ========================
-Tests of the database of conocimiento profesional.
+Tests for the professional knowledge database.
 """
 import pytest
 from legacy.knowledge.extractor import (
@@ -19,47 +19,43 @@ def kb(tmp_path):
     return KnowledgeBase(tmp_path / "kb.db")
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Text helper tests.
 
 def test_infer_title_basic():
-    title = _infer_title("protocol of treatment for hipertension arterial")
+    title = _infer_title("protocol of treatment for arterial hypertension")
     assert len(title) > 0
     assert title[0].isupper()
 
 
 def test_infer_title_skips_stopwords():
-    title = _infer_title("the treatment of the hipertension segun the protocol")
-    # Implementation note.
-    assert title.lower().split()[0] not in {"the", "of", "the"}
+    title = _infer_title("the treatment of hypertension according to the protocol")
+    assert title.lower().split()[0] not in {"the", "of"}
 
 
 def test_extract_keywords_returns_list():
-    kws = _extract_keywords("patient diagnosis treatment protocol clinical historial")
+    kws = _extract_keywords("patient diagnosis treatment protocol clinical history")
     assert isinstance(kws, list)
     assert len(kws) > 0
 
 
 def test_extract_keywords_no_stopwords():
-    kws = _extract_keywords("the patient of the clinica")
-    # Implementation note.
+    kws = _extract_keywords("the patient of the clinic")
     for kw in kws:
         assert len(kw) >= 4
 
 
 def test_summarize_short_text():
-    s = _summarize("text corto.")
+    s = _summarize("short text.")
     assert isinstance(s, str)
 
 
 def test_summarize_long_text():
     text = (
-        "the protocol clinical establece the siguiente procedimiento. "
-        "in primer lugar is realiza the anamnesis of the patient. "
-        "Posteriormente is efectua the examen fisico complete. "
-        "Finalmente is solicitan the estudios complementarios necesarios. "
-        "the resultados is analizan in conjunto with the equipo medico."
+        "The clinical protocol establishes the following procedure. "
+        "First, the patient's history is taken. "
+        "Next, a complete physical examination is performed. "
+        "Finally, the necessary complementary studies are requested. "
+        "The results are analyzed together with the medical team."
     )
     summary = _summarize(text, max_sentences=2)
     assert len(summary) < len(text)
@@ -67,45 +63,43 @@ def test_summarize_long_text():
 
 def test_detect_domain_medicine():
     domain, conf = _detect_domain(
-        "diagnosis of hipertension arterial in patient with sintomas "
-        "of dose excesiva. treatment clinical recomendado."
+        "diagnosis of arterial hypertension in a patient with symptoms "
+        "of excessive dosage. Recommended clinical treatment."
     )
     assert domain == KnowledgeDomain.MEDICINE
 
 
 def test_detect_domain_engineering():
     domain, conf = _detect_domain(
-        "the architecture of the system utiliza microservicios. "
-        "the algorithm of balanceo implementa the protocol definido "
-        "in the specification of requerimientos of the module central."
+        "The system architecture uses microservices. "
+        "The load-balancing algorithm implements the defined protocol "
+        "in the requirements specification for the central module."
     )
     assert domain == KnowledgeDomain.ENGINEERING
 
 
 def test_detect_domain_law():
     domain, conf = _detect_domain(
-        "the regulations establece that the contract must incluir all the clausulas "
-        "definidas in the regulation vigente. the case law indicates that "
-        "the judgment of the ruling is apelable segun the code."
+        "The regulations establish that the contract must include all clauses "
+        "defined in the current regulation. Case law indicates that "
+        "the judgment in the ruling is appealable under the code."
     )
     assert domain == KnowledgeDomain.LAW
 
 
 def test_detect_domain_general_fallback():
-    domain, conf = _detect_domain("esto is text without senales claras")
+    domain, conf = _detect_domain("this is text without clear signals")
     assert domain == KnowledgeDomain.GENERAL
     assert conf == "LOW"
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Storage tests.
 
 def test_extract_and_store_basic(kb):
     text = (
-        "protocol of treatment for pacientes with diagnosis of "
-        "hipertension arterial. the medicamento indicado is Enalapril "
-        "10mg each 24 horas. Control clinical mensual obligatorio."
+        "Protocol of treatment for patients with a diagnosis of "
+        "arterial hypertension. The indicated medication is Enalapril "
+        "10mg every 24 hours. Mandatory monthly clinical checkup."
     )
     entry = kb.extract_and_store(text, source_path="/notas/hta.txt")
     assert entry is not None
@@ -115,44 +109,42 @@ def test_extract_and_store_basic(kb):
 
 
 def test_extract_short_text_returns_none(kb):
-    entry = kb.extract_and_store("text very corto")
+    entry = kb.extract_and_store("very short text")
     assert entry is None
 
 
 def test_deduplication(kb):
     text = (
-        "protocol of treatment for pacientes with hipertension arterial "
-        "severa. the diagnosis clinical requires analysis of laboratorio "
-        "complete and seguimiento mensual of the medico tratante."
+        "Protocol of treatment for patients with severe arterial hypertension. "
+        "The clinical diagnosis requires complete laboratory analysis "
+        "and monthly follow-up with the treating physician."
     )
     e1 = kb.extract_and_store(text)
-    e2 = kb.extract_and_store(text)  # same text
+    e2 = kb.extract_and_store(text)  # duplicate text
     assert e1 is not None
-    assert e2 is None   # deduplicado by hash
+    assert e2 is None   # deduplicated by hash
 
 
 def test_extract_chunks(kb):
     long_text = (
-        "the system of distribucion of energia electrica requires a "
-        "protocol especifico of mantenimiento preventivo. the transformadores "
-        "deben revisarse each seis meses segun the regulations vigente. "
-        "the algorithm of deteccion of fallas implementa heuristicas basadas "
-        "in the architecture of the system electrico. the specification technique "
-        "define the requerimientos minimos for each module of the system. "
-    ) * 5  # text largo
+        "The electrical power distribution system requires a "
+        "specific preventive-maintenance protocol. The transformers "
+        "must be inspected every six months under current regulations. "
+        "The fault-detection algorithm implements heuristic methods based "
+        "on the architecture of the electrical system. The technical specification "
+        "defines the minimum requirements for each system module. "
+    ) * 5  # long text
     entries = kb.extract_chunks(long_text, source_path="/doc.txt", chunk_size=400)
     assert len(entries) >= 1
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Search tests.
 
 def test_search_finds_entry(kb):
     kb.extract_and_store(
-        "the algorithm of aprendizaje automatic utiliza redes neuronales "
-        "for clasificar senales in the system of architecture distribuida. "
-        "the implementation requires modulos especializados of procesamiento.",
+        "The machine-learning algorithm uses neural networks "
+        "to classify signals in a distributed architecture. "
+        "The implementation requires specialized processing modules.",
         source_path="/papers/ml.txt",
     )
     results = kb.search("algorithm architecture system")
@@ -166,23 +158,21 @@ def test_search_empty_returns_empty(kb):
 
 def test_search_by_domain(kb):
     kb.extract_and_store(
-        "the patient presenta diagnosis of diabetes tipo 2. "
-        "the treatment clinical incluye medicacion oral and dieta controlada. "
-        "Control medico quincenal in the clinica especializada.",
+        "The patient has a type 2 diabetes diagnosis. "
+        "The clinical treatment includes oral medication and a controlled diet. "
+        "Biweekly medical checkup at the specialized clinic.",
     )
     kb.extract_and_store(
-        "the system of infraestructura cloud utiliza architecture of microservicios. "
-        "the implementation of the algorithm of balanceo cumple with the specification "
-        "technique of the module principal of the system distribuido.",
+        "The cloud infrastructure system uses a microservices architecture. "
+        "The load-balancing algorithm implementation complies with the technical "
+        "specification for the main module of the distributed system.",
     )
     results = kb.search("patient treatment", domain=KnowledgeDomain.MEDICINE)
     for r in results:
         assert r.domain == KnowledgeDomain.MEDICINE
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Statistics tests.
 
 def test_stats_empty(kb):
     stats = kb.stats()
@@ -191,8 +181,8 @@ def test_stats_empty(kb):
 
 def test_stats_after_insert(kb):
     kb.extract_and_store(
-        "diagnosis clinical of the patient with sintomas of hipertension arterial. "
-        "the treatment medico incluye medicacion oral and control mensual.",
+        "Clinical diagnosis of a patient with symptoms of arterial hypertension. "
+        "Medical treatment includes oral medication and monthly monitoring.",
     )
     stats = kb.stats()
     assert stats["total"] == 1

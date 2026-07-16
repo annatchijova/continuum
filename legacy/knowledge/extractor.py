@@ -1,32 +1,31 @@
 """
 legacy/knowledge/extractor.py
 ==============================
-Extractor of conocimiento profesional.
+Professional knowledge extractor.
 
-Convierte documents, notas and escritos of a person in a database
-of conocimiento consultable: no only files inertes, sino entradas
-estructuradas with tema, contexto and content.
+Converts documents, notes, and writings into a searchable knowledge database:
+not just inert files, but structured entries with topic, context, and content.
 
-Casos of uso:
-  - 20 years of notas medical  database consultable by especialidad
-  - Proyectos of ingenieria  decisiones and razonamiento preservado
-  - Clases and materiales docentes  conocimiento pedagogico
+Use cases:
+  - 20 years of medical notes: searchable by specialty
+  - Engineering projects: preserved decisions and reasoning
+  - Classes and teaching materials: pedagogical knowledge
 
-Estructura of a entry of conocimiento:
+Knowledge-entry structure:
   KnowledgeEntry:
     entry_id    : UUID
-    title       : title inferido (first N words significativas)
-    domain      : area subject (MEDICINE / ENGINEERING / LAW / EDUCATION /
+    title       : inferred title (first N significant words)
+    domain      : subject area (MEDICINE / ENGINEERING / LAW / EDUCATION /
                   FINANCE / GENERAL)
     content     : text complete
-    summary     : summary of 1-3 sentences (determinista, without LLM)
-    keywords    : terms key extraidos
-    source_path : artifact origen
-    confidence  : HIGH / MEDIUM / LOW (over the extraction)
+    summary     : 1–3 sentence summary (deterministic, without an LLM)
+    keywords    : extracted key terms
+    source_path : source artifact
+    confidence  : HIGH / MEDIUM / LOW (for the extraction)
     created_at  : ISO 8601
 
-the extractor is puro: same input  same output.
-No llama LLMs  the summary is generates with heuristica determinista.
+The extractor is pure: the same input produces the same output.
+It does not call LLMs; the summary uses deterministic heuristics.
 """
 from __future__ import annotations
 
@@ -52,9 +51,7 @@ from legacy.core.dbcrypto import (
 )
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Knowledge domains and detection signals.
 
 class KnowledgeDomain(str, Enum):
     MEDICINE    = "medicine"
@@ -85,13 +82,12 @@ _DOMAIN_SIGNALS: List[tuple[KnowledgeDomain, List[str], Fraction]] = [
       "contract", "clause", "judgment", "legal", "compliance"],
      Fraction(2)),
     (KnowledgeDomain.EDUCATION,
-     ["class", "lesson", "student", "student", "curriculum", "evaluation",
-      "pedagog", "aprendizaje", "class", "lesson", "student", "curriculum",
+      ["class", "lesson", "student", "curriculum", "evaluation", "pedagog",
       "assessment", "learning", "teaching", "syllabus"],
      Fraction(2)),
     (KnowledgeDomain.FINANCE,
-     ["balance", "flujo of caja", "capital", "rendimiento", "cartera",
-      "riesgo", "volatilidad", "cashflow", "portfolio", "yield",
+     ["balance", "cash flow", "capital", "performance", "portfolio",
+      "risk", "volatility", "cashflow", "yield",
       "risk", "return", "valuation", "equity", "dividend"],
      Fraction(2)),
     (KnowledgeDomain.ARTS,
@@ -106,9 +102,7 @@ _DOMAIN_SIGNALS: List[tuple[KnowledgeDomain, List[str], Fraction]] = [
 ]
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Knowledge entry model.
 
 @dataclass
 class KnowledgeEntry:
@@ -135,13 +129,11 @@ class KnowledgeEntry:
         return KnowledgeEntry(**d)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Text extraction helpers.
 
 _STOP_WORDS = frozenset({
-    "of", "the", "the", "the", "the", "a", "a", "and", "o", "in", "with",
-    "by", "for", "that", "of the", "to the", "is", "is", "su", "sus", "a",
+    "of", "the", "a", "and", "in", "with", "by", "for", "that", "of the",
+    "to the", "is", "it", "on", "at",
     "the", "of", "and", "to", "in", "is", "it", "for", "on", "at",
 })
 
@@ -149,7 +141,7 @@ _SENTENCE_END = re.compile(r"[.!?]\s+")
 
 
 def _infer_title(text: str, max_words: int = 8) -> str:
-    """first N words significativas of the text as title."""
+    """Return the first N significant words of the text as a title."""
     first_line = text.strip().split("\n")[0]
     words = re.findall(r"[A-ZAEIOUNa-zaeiounua-z0-9]+", first_line)
     significant = [w for w in words if w.lower() not in _STOP_WORDS][:max_words]
@@ -157,7 +149,7 @@ def _infer_title(text: str, max_words: int = 8) -> str:
 
 
 def _extract_keywords(text: str, top_n: int = 15) -> List[str]:
-    """extracts keywords by frecuencia, excluyendo stopwords."""
+    """Extract keywords by frequency, excluding stop words."""
     from collections import Counter
     tokens = re.findall(r"[a-zaeiounua-z]{4,}", text.lower())
     filtered = [t for t in tokens if t not in _STOP_WORDS]
@@ -167,8 +159,8 @@ def _extract_keywords(text: str, top_n: int = 15) -> List[str]:
 
 def _summarize(text: str, max_sentences: int = 3) -> str:
     """
-    summary heuristico: first N sentences with longitud minima.
-    without LLM  determinista.
+    Deterministic heuristic summary: first N sentences above the minimum length.
+    No LLM is used.
     """
     sentences = _SENTENCE_END.split(text.strip())
     meaningful = [s.strip() for s in sentences if len(s.strip()) > 30]
@@ -180,10 +172,9 @@ _KW_PATTERN_CACHE: Dict[str, re.Pattern] = {}
 
 
 def _keyword_present(kw: str, text_lower: str) -> bool:
-    """True if `kw` aparece in a limit of word initial of `text_lower`.
+    """Return true if `kw` appears at the beginning of a word in `text_lower`.
 
-    Evita falsos positivos a mitad of word (p. ej. "data" dentro of another
-    word) conservando the sufijos by prefijo.
+    Avoid false positives inside another word while preserving prefix matches.
     """
     pat = _KW_PATTERN_CACHE.get(kw)
     if pat is None:
@@ -193,7 +184,7 @@ def _keyword_present(kw: str, text_lower: str) -> bool:
 
 
 def _detect_domain(text: str) -> tuple[KnowledgeDomain, str]:
-    """returns (domain, confidence)."""
+    """Return (domain, confidence)."""
     text_lower = text.lower()
     scores: Dict[KnowledgeDomain, Fraction] = {d: Fraction(0) for d in KnowledgeDomain}
     for domain, keywords, weight in _DOMAIN_SIGNALS:
@@ -215,9 +206,7 @@ def _detect_domain(text: str) -> tuple[KnowledgeDomain, str]:
     return ranked[0][0], "LOW"
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# SQLite schema.
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS knowledge (
@@ -234,29 +223,22 @@ CREATE TABLE IF NOT EXISTS knowledge (
 );
 CREATE INDEX IF NOT EXISTS idx_kn_domain ON knowledge(domain);
 """
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Persistent knowledge base.
 
 
 class KnowledgeBase:
     """
-    database of conocimiento profesional persistida in SQLite.
+    Persistent professional knowledge database backed by SQLite.
 
-    db_path : ruta to the file SQLite.
-    db_key  : 32 bytes  encrypts at rest the fields sensibles (KL-001b).
-              None  database in plaintext (compatibilidad).
+    db_path : path to the SQLite file.
+    db_key  : 32-byte key for encrypting sensitive fields at rest (KL-001b).
+              None means plaintext database (compatibility mode).
 
-    with db_key, the search is a scan in memory (decrypts and puntua); without
-    the key the database is opaca and search() returns empty.
+    With db_key, search scans decrypted rows in memory; without the key the
+    database is opaque and search() returns no results.
     """
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Fields encrypted at rest when a database key is configured.
     _ENCRYPTED_COLUMNS = ("title", "content", "summary", "keywords_json", "source_path")
 
     def __init__(self, db_path: Path, db_key: Optional[bytes] = None) -> None:
@@ -267,10 +249,10 @@ class KnowledgeBase:
             conn.executescript(_SCHEMA)
 
     def set_db_key(self, db_key: Optional[bytes]) -> None:
-        """Inyecta (o quita) the key of encrypted tras open the vault."""
+        """Set or remove the encryption key after opening the vault."""
         self._cipher = FieldCipher(db_key) if db_key else None
 
-    # Implementation note.
+    # Associated data binds each encrypted value to its entry and column.
 
     @staticmethod
     def _aad(entry_id: str, column: str) -> str:
@@ -282,7 +264,7 @@ class KnowledgeBase:
         return escape_plaintext(value)
 
     def _dec(self, entry_id: str, column: str, value):
-        """Forma almacenada  valor logico; None if unreadable in esta session."""
+        """Convert a stored value to its logical value; None if unreadable."""
         if value is None:
             return None
         if is_encrypted(value):
@@ -308,9 +290,7 @@ class KnowledgeBase:
         finally:
             conn.close()
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Extraction and persistence.
 
     def extract_and_store(
         self,
@@ -320,8 +300,8 @@ class KnowledgeBase:
         min_length: int = 100,
     ) -> Optional[KnowledgeEntry]:
         """
-        extracts conocimiento of a text and it almacena.
-        returns None if the text is demasiado corto o trivial.
+        Extract and store knowledge from text.
+        Return None when the text is too short or trivial.
         """
         text = text.strip()
         if len(text) < min_length:
@@ -329,7 +309,7 @@ class KnowledgeBase:
 
         content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-        # Implementation note.
+        # Avoid storing duplicate content.
         with self._connect() as conn:
             existing = conn.execute(
                 "SELECT entry_id FROM knowledge WHERE content_hash=?",
@@ -385,15 +365,15 @@ class KnowledgeBase:
         overlap: int = 100,
     ) -> List[KnowledgeEntry]:
         """
-        Divide text largo in chunks with overlap and extracts each uno.
-        Util for documents extensos.
+        Divide long text into overlapping chunks and extract each one.
+        Useful for large documents.
         """
         entries: List[KnowledgeEntry] = []
         start = 0
         while start < len(text):
             end = start + chunk_size
             chunk = text[start:end]
-            # Implementation note.
+            # Prefer ending chunks at sentence boundaries.
             if end < len(text):
                 last_period = chunk.rfind(".")
                 if last_period > chunk_size // 2:
@@ -402,15 +382,11 @@ class KnowledgeBase:
             entry = self.extract_and_store(chunk, source_path=source_path)
             if entry:
                 entries.append(entry)
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
+            # Advance with the requested overlap while guaranteeing progress.
             start = max(end - overlap, start + 1)
         return entries
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Search and metadata.
 
     def search(
         self,
@@ -420,10 +396,10 @@ class KnowledgeBase:
         top_k: int = 10,
     ) -> List[KnowledgeEntry]:
         """
-        search by scan in memory (KL-001b): decrypts each row and puntua
-        by solape of terms over title + content + keywords. the filtro
-        by domain is aplica in SQL (domain remains in plaintext). the rows that no
-        descifran in esta session (without a key) no participan  search empty.
+        Search by scanning decrypted rows in memory (KL-001b), scoring term
+        overlap across title, content, and keywords. Domain filtering is done
+        in SQL because domain remains plaintext. Rows that cannot be decrypted
+        in this session do not participate; without a key, search is empty.
         """
         terms = [t for t in query.lower().split() if t][:8]
         with self._connect() as conn:
@@ -438,7 +414,7 @@ class KnowledgeBase:
         for r in rows:
             entry = self._row_to_entry(r)
             if entry is None:
-                continue                    # encrypted without a key in esta session
+                continue                    # encrypted without a key in this session
             if not terms:
                 scored.append((0, entry))
                 continue
@@ -470,15 +446,13 @@ class KnowledgeBase:
             }
         return {"total": total, "by_domain": by_domain}
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Encryption migration.
 
     def migrate_encryption(self) -> Dict[str, int]:
         """
-        encrypts at rest the rows still in plaintext. requires db_key. Re-ejecutable
-        (skips the already encrypted) and does VACUUM + checkpoint for clean the
-        plaintext residual of the file. same patron that MemoryField.
+        Encrypt rows still in plaintext at rest. Requires db_key. Safe to rerun:
+        already encrypted rows are skipped. Runs VACUUM and checkpoint to clean
+        plaintext remnants from the file, matching MemoryField behavior.
         """
         if self._cipher is None:
             raise RuntimeError("migrate_encryption requires db_key (set_db_key).")
@@ -486,12 +460,7 @@ class KnowledgeBase:
         skipped = 0
         fts_dropped = False
         with self._connect() as conn:
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
-            # Implementation note.
+            # Drop the legacy plaintext FTS index before scrubbing the database.
             has_fts = conn.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='knowledge_fts'"
             ).fetchone()
@@ -523,9 +492,7 @@ class KnowledgeBase:
                 )
                 migrated += 1
 
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
+        # Scrub WAL and database pages after migration.
         if migrated or fts_dropped:
             scrub = sqlite3.connect(self._db_path, timeout=30)
             try:
@@ -537,17 +504,17 @@ class KnowledgeBase:
         return {"migrated": migrated, "skipped": skipped}
 
     def encryption_status(self) -> Dict[str, int]:
-        """Cuenta rows encrypted vs in plaintext (by the column content)."""
+        """Count encrypted and plaintext rows using the content column."""
         with self._connect() as conn:
             rows = conn.execute("SELECT content FROM knowledge").fetchall()
         enc = sum(1 for r in rows if is_encrypted(r["content"]))
         return {"total": len(rows), "encrypted": enc, "plaintext": len(rows) - enc}
 
-    # Implementation note.
+    # Row decoding.
 
     def _row_to_entry(self, row: sqlite3.Row) -> Optional[KnowledgeEntry]:
-        """row  entry descifrada. None if some field encrypted is unreadable
-        in esta session (missing the key o dato tampered)."""
+        """Decode a row into an entry, or None if encrypted data is unreadable
+        in this session because the key is missing or data was tampered with."""
         eid = row["entry_id"]
         title = self._dec(eid, "title", row["title"])
         content = self._dec(eid, "content", row["content"])
