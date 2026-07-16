@@ -48,6 +48,11 @@ class ConsolidationReport:
     degraded_to_forgotten: int
     scores_updated: int
     errors: List[str] = field(default_factory=list)
+    # memory_ids this run marked FORGOTTEN (merge losers + inactivity
+    # degradations). The agent records these in the audit trail so
+    # verify_memory_integrity can distinguish a legitimate suppression from
+    # an attack (FIX R7-002).
+    forgotten_ids: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -59,6 +64,7 @@ class ConsolidationReport:
             "degraded_to_forgotten": self.degraded_to_forgotten,
             "scores_updated": self.scores_updated,
             "errors": self.errors,
+            "forgotten_ids": self.forgotten_ids,
         }
 
 
@@ -117,11 +123,14 @@ class Consolidator:
             scores_updated=0,
         )
         try:
-            report.duplicates_merged = self._merge_duplicates()
+            merged, merge_forgotten = self._merge_duplicates()
+            report.duplicates_merged = merged
             report.synapses_pruned   = self._prune_synapses()
             report.promoted_to_reinforced = self._promote_frequent()
-            report.degraded_to_forgotten  = self._degrade_stale()
+            degraded, stale_forgotten = self._degrade_stale()
+            report.degraded_to_forgotten = degraded
             report.scores_updated = self._apply_score_decay()
+            report.forgotten_ids = merge_forgotten + stale_forgotten
         except Exception as exc:
             report.errors.append(str(exc))
         report.finished_at = datetime.now(timezone.utc).isoformat()
@@ -129,7 +138,7 @@ class Consolidator:
 
     # Duplicate merging.
 
-    def _merge_duplicates(self) -> int:
+    def _merge_duplicates(self) -> Tuple[int, List[str]]:
         conn = self._connect()
         try:
             rows = conn.execute(
@@ -140,6 +149,7 @@ class Consolidator:
             conn.close()
 
         merged = 0
+        forgotten: List[str] = []
         seen: List[Tuple[str, Set[str], str]] = []  # (memory_id, tokens, state)
 
         for row in rows:
@@ -170,12 +180,13 @@ class Consolidator:
                 )
                 self._merge_pair(winner_id, loser_id)
                 merged += 1
+                forgotten.append(loser_id)
                 # Keep the combined token set for later comparisons.
                 seen[best_idx] = (winner_id, orig_tokens | tokens, orig_state)
             else:
                 seen.append((mid, tokens, state))
 
-        return merged
+        return merged, forgotten
 
     def _resolve_winner(self, conn_fn, a_id: str, b_id: str) -> Tuple[str, str]:
         """REINFORCED wins; on a tie, choose the more recent memory."""
@@ -270,10 +281,19 @@ class Consolidator:
 
     # Degradation by inactivity.
 
-    def _degrade_stale(self) -> int:
+    def _degrade_stale(self) -> Tuple[int, List[str]]:
         cutoff = time.time() - self._forget_after_seconds
         conn = self._connect()
         try:
+            # SELECT before the UPDATE to capture WHICH memories are being
+            # degraded (legitimate audit attribution; FIX R7-002). Same
+            # transaction/connection.
+            stale = [
+                r["memory_id"] for r in conn.execute(
+                    "SELECT memory_id FROM memories WHERE last_access < ? AND state=?",
+                    (cutoff, MemoryState.NEUTRAL.value),
+                ).fetchall()
+            ]
             cursor = conn.execute(
                 """UPDATE memories SET state=?
                    WHERE last_access < ? AND state=?""",
@@ -287,7 +307,7 @@ class Consolidator:
             conn.commit()
         finally:
             conn.close()
-        return degraded
+        return degraded, stale
 
     # Score decay.
 

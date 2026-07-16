@@ -785,6 +785,17 @@ class LegacyAgent:
             forget_after_days=forget_after_days,
             score_decay=score_decay,
         ).run()
+        # FIX R7-002: record each memory this consolidation run marked
+        # FORGOTTEN, by memory_id, in the SAME format as forget_memory().
+        # This lets verify_memory_integrity distinguish a legitimate
+        # suppression (audit-attributable) from a state flip to FORGOTTEN
+        # injected into memory.db by an attacker (no audit event -> tampering).
+        for mid in report.forgotten_ids:
+            self._audit.append(
+                "MEMORY_FORGOTTEN",
+                actor=self._owner_id,
+                detail=f"memory_id={mid} reason=consolidation",
+            )
         self._audit.append(
             "MEMORY_CONSOLIDATED",
             actor=self._owner_id,
@@ -1052,6 +1063,23 @@ class LegacyAgent:
         checked = 0
         db_path = self._data_dir / "memory.db"
 
+        # FIX R7-002: memories legitimately forgotten are attributable to a
+        # MEMORY_FORGOTTEN audit event (manual forget_memory() or
+        # consolidation). An indexed memory that shows up FORGOTTEN in
+        # memory.db WITHOUT this backing was suppressed out of band (a
+        # state flip injected at the filesystem level): invisible to the
+        # heir, and until now invisible to this check too. `state` governs
+        # recall visibility but lives outside the encryption perimeter and
+        # unauthenticated - the archetype "critical state outside the
+        # perimeter". Audit attribution is as strong as the hash chain:
+        # with LEGACY_HMAC_KEY, forging a covering event requires the key
+        # (KL-009); without HMAC an attacker could already rewrite everything.
+        audited_forgotten: set = set()
+        for ev in self._audit.events(event_type="MEMORY_FORGOTTEN"):
+            for tok in (ev.get("detail") or "").split():
+                if tok.startswith("memory_id="):
+                    audited_forgotten.add(tok[len("memory_id="):])
+
         if not db_path.exists():
             errors.append("memory.db not found")
         else:
@@ -1069,7 +1097,7 @@ class LegacyAgent:
                     vault_memory_ids.add(memory_id)
                     checked += 1
                     row = conn.execute(
-                        "SELECT content FROM memories WHERE memory_id=?",
+                        "SELECT content, state FROM memories WHERE memory_id=?",
                         (memory_id,),
                     ).fetchone()
                     if row is None:
@@ -1077,6 +1105,19 @@ class LegacyAgent:
                             f"memory_id={memory_id[:8]}… missing from memory.db"
                         )
                     else:
+                        # Suppression: an indexed memory marked FORGOTTEN with
+                        # no audit-trail backing = an injected state flip
+                        # (FIX R7-002). Content may still be intact (hash OK)
+                        # but the heir no longer sees it.
+                        if (
+                            row["state"] == "FORGOTTEN"
+                            and memory_id not in audited_forgotten
+                        ):
+                            errors.append(
+                                f"memory_id={memory_id[:8]}… indexed but "
+                                f"FORGOTTEN with no audit event (out-of-band "
+                                f"suppression: invisible to the heir)"
+                            )
                         # Decrypt the stored content using the active database key.
                         content = self._memory._dec(
                             memory_id, "content", row["content"]

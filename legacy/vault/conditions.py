@@ -181,16 +181,35 @@ class AccessPolicy:
         now: Optional[datetime] = None,
         heir_key: Optional[str] = None,
     ) -> bool:
+        """
+        FIX R7-001: HeirKeyCondition entries are OR-combined among
+        themselves, and that group result participates in the global
+        operator alongside the other conditions.
+
+        A presented key belongs to ONE heir. Under the previous model
+        (each HeirKeyCondition as a standalone term of the global AND),
+        registering a second heir's key made the policy unsatisfiable for
+        ALL heirs: `all([..., is_met(keyA)=True, is_met(keyB)=False])` is
+        never True. Two heirs with a key would lock each other out - the
+        worst possible moment to discover that is after the owner's death.
+        Requiring every heir's key at once makes no sense; the group is
+        an OR.
+        """
         results = []
+        heir_key_conds: List[HeirKeyCondition] = []
         for cond in self.conditions:
             if isinstance(cond, HeirKeyCondition):
-                results.append(cond.is_met(heir_key or ""))
+                heir_key_conds.append(cond)
             elif isinstance(cond, (InactivityCondition, DateCondition)):
                 results.append(cond.is_met(now))
             elif isinstance(cond, ManualCondition):
                 results.append(cond.is_met())
             else:
                 results.append(False)
+
+        # Heir-key group: satisfied if ANY of them matches.
+        if heir_key_conds:
+            results.append(any(c.is_met(heir_key or "") for c in heir_key_conds))
 
         if not results:
             return False
