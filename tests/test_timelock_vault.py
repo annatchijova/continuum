@@ -1,12 +1,12 @@
 """
 tests/test_timelock_vault.py
 =============================
-Integracion of the time-lock puzzle as keyslot of the vault and in the agente
-(componente offline of KL-011). T pequeno  fast.
+Integration of the time-lock puzzle as a vault keyslot and agent component
+(offline component of KL-011). Small T keeps tests fast.
 
-Invariante central: the vault is can open resolviendo the puzzle, without the
-passphrase ni custodios; and the slot is INDEPENDIENTE (no rompe the demas,
-sobrevive to the rekey as the resto of keyslots v2).
+Central invariant: the vault can open by solving the puzzle without the
+passphrase or custodians; the slot is INDEPENDENT and survives rekey alongside
+the other v2 keyslots.
 """
 from __future__ import annotations
 
@@ -29,9 +29,7 @@ def vault(tmp_path):
     return v
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Vault time-lock behavior.
 
 def test_open_with_timelock(vault):
     vault.add_timelock_slot(PASS, T, modulus_bits=1024)
@@ -41,18 +39,18 @@ def test_open_with_timelock(vault):
 
 
 def test_timelock_slot_is_independent(vault):
-    """Agregar time-lock no rompe the passphrase; ambos abren the same payload."""
+    """Adding a time-lock does not break the passphrase; both open the payload."""
     vault.add_timelock_slot(PASS, T, modulus_bits=1024)
     assert vault.open(PASS) == DATA
     assert vault.open_with_timelock() == DATA
 
 
 def test_timelock_survives_rekey(vault):
-    """the slot time-lock sobrevive to the rewrap of passphrase (keyslot v2)."""
+    """The time-lock slot survives passphrase rewrapping (v2 keyslots)."""
     vault.add_timelock_slot(PASS, T, modulus_bits=1024)
     vault.rewrap_passphrase(PASS, "new")
     assert vault.open("new") == DATA
-    assert vault.open_with_timelock() == DATA          # sigue valid
+    assert vault.open_with_timelock() == DATA          # remains valid
 
 
 def test_timelock_coexists_with_recovery(vault):
@@ -62,7 +60,7 @@ def test_timelock_coexists_with_recovery(vault):
     vault.add_timelock_slot(PASS, T, modulus_bits=1024)
     assert vault.open(PASS) == DATA
     assert vault.open_with_recovery(rk) == DATA
-    assert vault.open_with_timelock() == DATA          # tres caminos independientes
+    assert vault.open_with_timelock() == DATA          # three independent paths
 
 
 def test_remove_timelock(vault):
@@ -75,14 +73,14 @@ def test_remove_timelock(vault):
 
 
 def test_open_with_timelock_without_slot_raises(vault):
-    """a vault v2 without slot time-lock configurado no opens by esa via."""
+    """A v2 vault without a configured time-lock slot cannot open that way."""
     assert not vault.has_timelock_slot()
     with pytest.raises(VaultAuthError):
         vault.open_with_timelock()
 
 
 def test_open_with_timelock_on_v1_raises(tmp_path):
-    """over a envelope v1 (formato original) the via time-lock avisa that is v1."""
+    """A v1 envelope reports that time-lock recovery is unavailable."""
     from tests.test_vault_v2 import _make_v1_envelope
     path = tmp_path / "old.vault"
     _make_v1_envelope(path, DATA, PASS)
@@ -102,17 +100,15 @@ def test_tampered_puzzle_fails_closed(vault):
         vault.open_with_timelock()
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Agent integration behavior.
 
 def test_agent_timelock_recovery_reads_everything(tmp_path):
-    """Flujo real: owner configura time-lock; more tarde, without a passphrase ni
-    custodios, is resuelve the puzzle and is reads the legado (incl. memory encrypted)."""
+    """End-to-end flow: the owner configures a time-lock; later, without a
+    passphrase or custodians, the puzzle is solved and the encrypted legacy is read."""
     a = LegacyAgent(tmp_path / "data", "anna")
     a.initialize("pw")
     src = tmp_path / "t.txt"
-    src.write_text("testamento herencia notario zzyzx", encoding="utf-8")
+    src.write_text("will inheritance notary zzyzx", encoding="utf-8")
     a.ingest(src)
     a.encrypt_database("pw")
     a.add_timelock("pw", T, modulus_bits=1024)
@@ -121,7 +117,7 @@ def test_agent_timelock_recovery_reads_everything(tmp_path):
     rec = LegacyAgent(tmp_path / "data", "anna")
     rec.recover_with_timelock(actor="olga")            # without a passphrase
     assert rec._index.owner_id == "anna"
-    assert len(rec.query("testamento herencia", actor="olga")) >= 1   # memory encrypted legible
+    assert len(rec.query("will inheritance", actor="olga")) >= 1   # encrypted memory is readable
     assert "VAULT_RECOVERED_TIMELOCK" in [
         e["event_type"] for e in rec._audit.events()
     ]
@@ -143,21 +139,21 @@ def test_agent_timelock_survives_rekey(tmp_path):
 
 
 def test_agent_set_passphrase_from_timelock(tmp_path):
-    """the heirs toman posesion: resuelven the puzzle once and fijan su
-    propia passphrase; the old remains reemplazada."""
+    """The heirs take possession by solving the puzzle once and setting their
+    own passphrase; the old one is replaced."""
     a = LegacyAgent(tmp_path / "data", "anna")
     a.initialize("old")
     a.add_timelock("old", T, modulus_bits=1024)
     a.lock("old")
 
     heir = LegacyAgent(tmp_path / "data", "anna")
-    heir.set_passphrase_from_timelock("heredada", actor="olga")
+    heir.set_passphrase_from_timelock("inherited", actor="olga")
     assert heir._index.owner_id == "anna"
 
     final = LegacyAgent(tmp_path / "data", "anna")
-    final.open_owner("heredada")                       # the new opens
+    final.open_owner("inherited")                      # the new one opens
     with pytest.raises(VaultAuthError):
-        LegacyAgent(tmp_path / "data", "anna").open_owner("old")  # the old no
+        LegacyAgent(tmp_path / "data", "anna").open_owner("old")  # the old fails
 
 
 def test_agent_remove_timelock(tmp_path):

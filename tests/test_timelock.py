@@ -1,12 +1,12 @@
 """
 tests/test_timelock.py
 =======================
-Time-lock puzzle RSW96 (legacy/core/timelock.py)  the componente realizable
+Time-lock puzzle RSW96 (legacy/core/timelock.py), the realizable component
 of KL-011.
 
-all the tests usan T pequeno (sub-segundo). Defienden: correctitud of the
-roundtrip, the piso of trabajo secuencial (the atajo no must existir without ),
-fail-closed ante manipulacion, and the bounds of entry.
+All tests use small T values (sub-second). They defend round-trip correctness,
+the sequential work floor (no shortcut must exist), fail-closed tamper handling,
+and input bounds.
 """
 from __future__ import annotations
 
@@ -26,9 +26,7 @@ from legacy.core.timelock import (
 SECRET = secrets.token_bytes(32)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Round-trip and serialization behavior.
 
 @pytest.mark.parametrize("T", [1, 2, 1000, 20_000])
 def test_roundtrip(T):
@@ -37,13 +35,13 @@ def test_roundtrip(T):
 
 
 def test_secret_not_in_puzzle_plaintext(tmp_path):
-    puz = create_puzzle(b"SECRETO-in-CLARO-NO-must-APARECER", 500, modulus_bits=1024)
+    puz = create_puzzle(b"SECRET-MUST-NOT-APPEAR-IN-PLAINTEXT", 500, modulus_bits=1024)
     blob = repr(puz).encode()
-    assert b"SECRETO-in-CLARO" not in blob
+    assert b"SECRET-MUST-NOT" not in blob
 
 
 def test_puzzle_discards_factorization():
-    """the puzzle serializado NO contiene p, q ni  (the atajo is descarta)."""
+    """The serialized puzzle contains neither p nor q; the shortcut is discarded."""
     puz = create_puzzle(SECRET, 100, modulus_bits=1024)
     assert set(puz.keys()) == {
         "version", "modulus_bits", "squarings", "n", "a", "nonce", "ciphertext"
@@ -57,36 +55,32 @@ def test_serializable_json_roundtrip():
     assert solve_puzzle(reparsed) == SECRET
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Work-factor behavior.
 
 def test_more_squarings_costs_more_time():
-    """the tiempo of resolucion crece with T (no hay atajo publico)."""
+    """Resolution time grows with T; there is no public shortcut."""
     import time
     small = create_puzzle(SECRET, 5_000, modulus_bits=2048)
     big = create_puzzle(SECRET, 200_000, modulus_bits=2048)
     t0 = time.time(); solve_puzzle(small); t_small = time.time() - t0
     t0 = time.time(); solve_puzzle(big); t_big = time.time() - t0
-    assert t_big > t_small * 5      # ~40x more trabajo  claramente more slow
+    assert t_big > t_small * 5      # roughly 40x more work
 
 
 def test_setup_is_fast_regardless_of_T():
-    """Setup O(log T): crear a puzzle of T enorme is instantaneo (the cost
-    is in resolverlo, no in crearlo)."""
+    """Setup is O(log T): creating a huge-T puzzle is immediate; the cost
+    is in solving it, not creating it."""
     import time
     t0 = time.time()
     create_puzzle(SECRET, 10 ** 12, modulus_bits=1024)   # no it resolvemos
     assert time.time() - t0 < 2.0
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Tamper handling.
 
 def test_tampered_modulus_fails():
     puz = create_puzzle(SECRET, 1000, modulus_bits=1024)
-    puz["n"] = format(int(puz["n"], 16) + 2, "x")     # another N  another solucion
+    puz["n"] = format(int(puz["n"], 16) + 2, "x")     # another N, another solution
     with pytest.raises(TimeLockError):
         solve_puzzle(puz)
 
@@ -100,7 +94,7 @@ def test_tampered_base_fails():
 
 def test_tampered_squarings_fails():
     puz = create_puzzle(SECRET, 1000, modulus_bits=1024)
-    puz["squarings"] = 999                              # T distinto  another solucion
+    puz["squarings"] = 999                              # different T, another solution
     with pytest.raises(TimeLockError):
         solve_puzzle(puz)
 
@@ -120,24 +114,20 @@ def test_garbage_puzzle_fails():
         solve_puzzle({"version": "9"})
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Bounds and primality helpers.
 
 def test_bounds():
     with pytest.raises(TimeLockError):
-        create_puzzle(b"", 100)                        # secreto empty
+        create_puzzle(b"", 100)                        # empty secret
     with pytest.raises(TimeLockError):
         create_puzzle(SECRET, 0)                       # T < 1
     with pytest.raises(TimeLockError):
         create_puzzle(SECRET, 10 ** 20)                # T > techo
     with pytest.raises(TimeLockError):
-        create_puzzle(SECRET, 100, modulus_bits=512)   # module debil
+        create_puzzle(SECRET, 100, modulus_bits=512)   # weak modulus
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Calibration behavior.
 
 def test_miller_rabin_basic():
     assert _is_probable_prime(2) and _is_probable_prime(97)
