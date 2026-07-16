@@ -34,6 +34,7 @@ function showStudio(data) {
   $("integrityDot").className = `integrity-dot ${data.integrity ? (data.hmac_checked ? "integrity-strong" : "integrity-limited") : "integrity-failed"}`;
   const securityMessages = [];
   if (!data.database_encrypted) securityMessages.push("Memory database encryption is not enabled for this existing vault. Run legacy encrypt-db before relying on at-rest confidentiality.");
+  if (!data.hmac_checked) securityMessages.push("Audit verification is hash-only. Configure LEGACY_HMAC_KEY to resist full-chain rewrites by an attacker with write access.");
   if (!data.heir_policy_configured) securityMessages.push("No heir access policy is configured. Anyone who has the vault passphrase can request the heir path.");
   $("securityNote").hidden = securityMessages.length === 0;
   $("securityNote").textContent = securityMessages.join(" ");

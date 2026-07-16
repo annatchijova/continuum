@@ -168,6 +168,7 @@ def test_ui_distinguishes_hmac_hash_only_and_failed_integrity():
     assert "integrity-limited" in script
     assert "integrity-failed" in script
     assert ".integrity-dot.integrity-limited" in styles
+    assert "Configure LEGACY_HMAC_KEY" in script
 
 
 def test_capture_preserves_safe_supported_text_file_extension():
