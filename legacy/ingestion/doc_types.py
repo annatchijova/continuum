@@ -1,12 +1,12 @@
 """
 legacy/ingestion/doc_types.py
 ==============================
-Taxonomia of tipos of document of the legado digital.
+Taxonomy of digital-legacy document types.
 
-each categoria tiene:
-  - keywords  : terms that aumentan the senal (Fraction weight)
-  - patterns  : regex for deteccion estructural
-  - priority  : importancia for the guia of heirs (1 = maxima)
+Each category has:
+  - keywords  : terms that increase the signal (Fraction weight)
+  - patterns  : regexes for structural detection
+  - priority  : importance for the heir guide (1 = highest)
 """
 from __future__ import annotations
 
@@ -18,23 +18,23 @@ from typing import Dict, List, Pattern, Tuple
 
 
 class DocCategory(str, Enum):
-    LEGAL       = "legal"           # escrituras, testamentos, contratos
-    FINANCIAL   = "financial"       # cuentas, inversiones, seguros
-    MEDICAL     = "medical"         # historial clinical, recetas
-    IDENTITY    = "identity"        # DNI, pasaporte, licencias
-    REAL_ESTATE = "real_estate"     # property, hipotecas, alquileres
-    SUBSCRIPTION= "subscription"    # servicios activos, suscripciones
-    PROFESSIONAL= "professional"    # titulos, curriculum, proyectos laborales
-    MEDIA       = "media"           # fotos, videos, audio
-    PERSONAL    = "personal"        # diarios, cartas, memories
-    CREDENTIAL  = "credential"      # indicios of accesos (without contrasenas)
+    LEGAL       = "legal"           # deeds, wills, contracts
+    FINANCIAL   = "financial"       # accounts, investments, insurance
+    MEDICAL     = "medical"         # medical history, prescriptions
+    IDENTITY    = "identity"        # identity cards, passports, licenses
+    REAL_ESTATE = "real_estate"     # property, mortgages, rentals
+    SUBSCRIPTION= "subscription"    # active services, subscriptions
+    PROFESSIONAL= "professional"    # degrees, resumes, work projects
+    MEDIA       = "media"           # photos, videos, audio
+    PERSONAL    = "personal"        # journals, letters, memories
+    CREDENTIAL  = "credential"      # access clues (not passwords)
     UNKNOWN     = "unknown"
 
 
 @dataclass
 class CategoryProfile:
     category: DocCategory
-    priority: int                   # 1 = maxima urgencia for heirs
+    priority: int                   # 1 = highest urgency for heirs
     keywords: List[str] = field(default_factory=list)
     patterns: List[str] = field(default_factory=list)   # regex strings
     weight: Fraction = Fraction(1)
@@ -48,16 +48,14 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
         category=DocCategory.LEGAL,
         priority=1,
         keywords=[
-            "testamento", "testament", "poder notarial", "power of attorney",
-            "escritura", "deed", "contract", "contract", "acuerdo", "agreement",
-            "herencia", "inheritance", "albacea", "executor", "fideicomiso",
-            "trust", "notaria", "notary", "juzgado", "tribunal", "court",
-            "demanda", "judgment", "ruling", "resolucion",
+            "will", "testament", "power of attorney", "deed", "contract",
+            "agreement", "inheritance", "executor", "trust", "notary",
+            "court", "lawsuit", "judgment", "ruling", "resolution",
         ],
         patterns=[
-            r"\b(instrumento\s+p[uu]blico|instrumento\s+privado)\b",
-            r"\b(ante\s+m[ii]\s+the\s+notario|before\s+me\s+the\s+notary)\b",
-            r"\b(by\s+medio\s+of the\s+presente|by\s+means\s+of\s+this)\b",
+            r"\b(public\s+instrument|private\s+instrument)\b",
+            r"\b(before\s+me\s+the\s+notary)\b",
+            r"\b(by\s+means\s+of\s+this)\b",
         ],
         weight=Fraction(3),
     ),
@@ -66,18 +64,15 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
         category=DocCategory.FINANCIAL,
         priority=1,
         keywords=[
-            "cuenta bancaria", "bank account", "saldo", "balance",
-            "inversion", "investment", "fondo", "fund", "acciones", "stocks",
-            "seguro of vida", "life insurance", "poliza", "policy",
-            "prestamo", "loan", "hipoteca", "mortgage", "credito", "credit",
-            "jubilacion", "pension", "retirement", "dividendo", "dividend",
-            "declaracion of renta", "tax return", "impuesto", "tax",
-            "extracto bancario", "bank statement", "IBAN", "SWIFT",
+            "bank account", "balance", "investment", "fund", "stocks",
+            "life insurance", "policy", "loan", "mortgage", "credit",
+            "pension", "retirement", "dividend", "tax return", "tax",
+            "bank statement", "IBAN", "SWIFT",
         ],
         patterns=[
             r"\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}([A-Z0-9]?){0,16}\b",  # IBAN
-            r"\b\d{4}[-\s]\d{4}[-\s]\d{4}[-\s]\d{4}\b",              # tarjeta
-            r"\$[\d,]+(\.\d{2})?|\[\d,]+(\.\d{2})?",                 # montos
+            r"\b\d{4}[-\s]\d{4}[-\s]\d{4}[-\s]\d{4}\b",              # card
+            r"\$[\d,]+(\.\d{2})?|\[\d,]+(\.\d{2})?",                 # amounts
         ],
         weight=Fraction(3),
     ),
@@ -86,15 +81,13 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
         category=DocCategory.MEDICAL,
         priority=2,
         keywords=[
-            "historial medico", "medical history", "diagnosis", "diagnosis",
-            "receta", "prescription", "medicamento", "medication", "dose",
-            "hospital", "clinica", "clinic", "medico", "doctor", "physician",
-            "cirugia", "surgery", "treatment", "treatment", "vacuna",
-            "vaccine", "analysis", "laboratorio", "laboratory",
+            "medical history", "diagnosis", "prescription", "medication", "dose",
+            "hospital", "clinic", "doctor", "physician", "surgery", "treatment",
+            "vaccine", "analysis", "laboratory",
         ],
         patterns=[
             r"\b(mg|ml|gr)\s*\d+\b",
-            r"\b(each\s+\d+\s+horas?|each\s+\d+\s+d[ii]as?)\b",
+            r"\b(each\s+\d+\s+hours?|each\s+\d+\s+days?)\b",
             r"\b(CIE|ICD)[-\s]\d+\b",
         ],
         weight=Fraction(2),
@@ -104,14 +97,13 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
         category=DocCategory.IDENTITY,
         priority=1,
         keywords=[
-            "document nacional", "national identity", "DNI", "pasaporte",
-            "passport", "licencia of conducir", "driver license",
-            "numero of identificacion", "ID number", "CUIL", "CUIT",
-            "RFC", "SSN", "numero of seguridad social",
+            "national identity document", "DNI", "passport", "driver license",
+            "identification number", "ID number", "CUIL", "CUIT", "RFC", "SSN",
+            "social security number",
         ],
         patterns=[
-            r"\b[A-Z]{1,3}\d{6,9}[A-Z0-9]?\b",   # formatos comunes of ID
-            r"\b\d{3}-\d{2}-\d{4}\b",              # SSN formato US
+            r"\b[A-Z]{1,3}\d{6,9}[A-Z0-9]?\b",   # common ID formats
+            r"\b\d{3}-\d{2}-\d{4}\b",           # US SSN format
         ],
         weight=Fraction(3),
     ),
@@ -120,14 +112,11 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
         category=DocCategory.REAL_ESTATE,
         priority=2,
         keywords=[
-            "property", "property", "inmueble", "vivienda", "house",
-            "departamento", "apartment", "terreno", "land", "parcela",
-            "hipoteca", "mortgage", "alquiler", "rental", "arriendo",
-            "expensas", "HOA", "catastro", "cadastre", "matricula",
-            "folio real", "title of property", "deed",
+            "property", "house", "apartment", "land", "parcel", "mortgage",
+            "rental", "HOA", "cadastre", "title", "real folio", "deed",
         ],
         patterns=[
-            r"\b(lote|parcela|manzana)\s+\d+\b",
+            r"\b(lot|parcel|block)\s+\d+\b",
             r"\bfolio\s+(real\s+)?\d+\b",
         ],
         weight=Fraction(2),
@@ -137,16 +126,15 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
         category=DocCategory.SUBSCRIPTION,
         priority=2,
         keywords=[
-            "suscripcion", "subscription", "plan mensual", "monthly plan",
-            "renovacion automatica", "auto-renewal", "facturacion",
-            "billing", "Netflix", "Spotify", "Amazon", "Apple",
+            "subscription", "monthly plan", "auto-renewal", "billing",
+            "Netflix", "Spotify", "Amazon", "Apple",
             "Google", "Microsoft", "Adobe", "GitHub", "dropbox",
-            "iCloud", "OneDrive", "membresia", "membership",
+            "iCloud", "OneDrive", "membership",
         ],
         patterns=[
-            r"\b(is\s+renova|will\s+renew|auto.renew)\b",
-            r"\b(cargo\s+mensual|monthly\s+charge|billed\s+monthly)\b",
-            r"\b(cancelar\s+in|cancel\s+by|proxima\s+factura|next\s+bill)\b",
+            r"\b(will\s+renew|auto.renew)\b",
+            r"\b(monthly\s+charge|billed\s+monthly)\b",
+            r"\b(cancel\s+by|next\s+bill)\b",
         ],
         weight=Fraction(2),
     ),
@@ -155,14 +143,13 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
         category=DocCategory.PROFESSIONAL,
         priority=3,
         keywords=[
-            "curriculum", "curriculum", "CV", "resume", "title",
-            "degree", "certificado", "certificate", "diploma", "acreditacion",
-            "proyecto", "project", "cliente", "client", "contract laboral",
-            "employment", "empleo", "empresa", "company",
+            "curriculum", "CV", "resume", "title", "degree", "certificate",
+            "diploma", "accreditation", "project", "client", "employment",
+            "company",
         ],
         patterns=[
-            r"\b(ingeniero|medico|abogado|docente|profesor)\b",
-            r"\b(licenciado|licenciada|doctor|doctora)\s+in\b",
+            r"\b(engineer|doctor|lawyer|teacher|professor)\b",
+            r"\b(graduate|doctor)\s+in\b",
         ],
         weight=Fraction(1),
     ),
@@ -179,11 +166,10 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
         category=DocCategory.PERSONAL,
         priority=4,
         keywords=[
-            "querido", "dear", "carta", "letter", "diario",
-            "journal", "diary", "recuerdo", "memory", "memoir",
+            "dear", "letter", "journal", "diary", "memory", "memoir",
         ],
         patterns=[
-            r"^(Querido|Dear|A quien\s+corresponda)\b",
+            r"^(Dear|To whom\s+it\s+may\s+concern)\b",
         ],
         weight=Fraction(1),
     ),
@@ -192,13 +178,11 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
         category=DocCategory.CREDENTIAL,
         priority=2,
         keywords=[
-            "contrasena", "password", "usuario", "username",
-            "correo electronico", "email", "cuenta", "account",
-            "inicio of session", "login", "acceso", "access",
-            "autenticacion", "authentication", "2FA", "MFA",
+            "password", "username", "email", "account", "login", "access",
+            "authentication", "2FA", "MFA",
         ],
         patterns=[
-            r"\b(login|usuario|user):\s*\S+\b",
+            r"\b(login|user):\s*\S+\b",
         ],
         weight=Fraction(2),
     ),
@@ -219,7 +203,7 @@ EXTENSION_HINTS: Dict[str, DocCategory] = {
     ".pdf": DocCategory.UNKNOWN,    # needs analysis of content
     ".doc": DocCategory.UNKNOWN,
     ".docx": DocCategory.UNKNOWN,
-    ".xls": DocCategory.FINANCIAL,  # probablemente financiero
+    ".xls": DocCategory.FINANCIAL,  # probably financial
     ".xlsx": DocCategory.FINANCIAL,
     ".csv": DocCategory.UNKNOWN,
     ".txt": DocCategory.UNKNOWN,

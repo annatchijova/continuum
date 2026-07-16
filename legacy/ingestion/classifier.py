@@ -1,22 +1,22 @@
 """
 legacy/ingestion/classifier.py
 ================================
-Clasificador determinista of documents of the legado digital.
+Deterministic classifier for digital-legacy documents.
 
-Usa aritmetica of Fraction  without float in the path of decision.
-the LLM can enriquecer the result post-classification, pero nunca
-modifica the categoria asignada by este module.
+Uses Fraction arithmetic with no floats in the decision path.
+An LLM may enrich the result after classification, but never modifies
+the category assigned by this module.
 
-result:
+Result:
   ClassificationResult with:
-    - category     : DocCategory ganadora
-    - scores       : Fraction by categoria (reproducibles)
-    - signals      : lista of senales detectadas
-    - confidence   : HIGH / MEDIUM / LOW (basada in margen between 1 and 2)
-    - content_hash : SHA-256 of the text analizado (trazabilidad)
+    - category     : winning DocCategory
+    - scores       : Fraction per category (reproducible)
+    - signals      : detected signals
+    - confidence   : HIGH / MEDIUM / LOW (based on the margin between first and second)
+    - content_hash : SHA-256 of the analyzed text (traceability)
 
-the clasificador is puro: dado the same text siempre produce
-the same result, without state interno ni calls externas.
+The classifier is pure: given the same text it always produces the same
+result, with no internal state or external calls.
 """
 from __future__ import annotations
 
@@ -39,12 +39,12 @@ _KW_PATTERN_CACHE: Dict[str, re.Pattern] = {}
 
 
 def _keyword_present(kw: str, text_lower: str) -> bool:
-    """True if `kw` aparece in `text_lower` in a limit of word initial.
+    """Return True if `kw` appears at an initial word boundary in `text_lower`.
 
-    replaces the `kw in text` crudo, that producia falsos positivos a mitad of
-    word ("tax" in "sinTAXis"  FINANCIAL). the limit `\\b` only va to the inicio,
-    of modo that is conservan the sufijos ("cuenta" sigue matcheando "cuentas",
-    "suscripcion" matchea "suscripciones") pero no the coincidencias internas.
+    This replaces the raw `kw in text`, which produced false positives inside
+    words ("tax" in "sinTAXis" → FINANCIAL). The `\\b` boundary is used only
+    at the start, preserving suffix matches ("account" matches "accounts")
+    while rejecting internal matches.
     """
     kw = kw.lower()
     pat = _KW_PATTERN_CACHE.get(kw)
@@ -54,15 +54,13 @@ def _keyword_present(kw: str, text_lower: str) -> bool:
     return pat.search(text_lower) is not None
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Classification data structures.
 
 @dataclass
 class ClassificationSignal:
     category: DocCategory
     kind: str           # "keyword" | "pattern" | "extension_hint"
-    matched: str        # it that disparo the senal
+    matched: str        # text that triggered the signal
     weight: Fraction
 
 
@@ -79,13 +77,11 @@ class ClassificationResult:
         return sorted(self.signals, key=lambda s: s.weight, reverse=True)[:n]
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Classifier implementation.
 
 class DocumentClassifier:
     """
-    Clasificador determinista.
+    Deterministic classifier.
 
     Uso:
         clf = DocumentClassifier()
@@ -94,7 +90,7 @@ class DocumentClassifier:
 
     def __init__(self) -> None:
         self._profiles = CATEGORY_PROFILES
-        # Implementation note.
+        # Compile patterns once per classifier instance.
         self._compiled: Dict[DocCategory, List[re.Pattern]] = {
             cat: prof.compiled_patterns()
             for cat, prof in self._profiles.items()
@@ -106,9 +102,9 @@ class DocumentClassifier:
         filename: Optional[str] = None,
     ) -> ClassificationResult:
         """
-        classifies the text in a categoria.
-        text     : content extraido (UTF-8, already decodificado).
-        filename : only for hint of extension and trazabilidad.
+        Classify text into a category.
+        text     : extracted content (UTF-8, already decoded).
+        filename : used only for an extension hint and traceability.
         """
         content_hash = hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
         text_lower = text.lower()
@@ -116,7 +112,7 @@ class DocumentClassifier:
         scores: Dict[DocCategory, Fraction] = {cat: Fraction(0) for cat in DocCategory}
         signals: List[ClassificationSignal] = []
 
-        # Implementation note.
+        # Extension hints provide a weak signal.
         if filename:
             ext = Path(filename).suffix.lower()
             hint_cat = EXTENSION_HINTS.get(ext)
@@ -130,7 +126,7 @@ class DocumentClassifier:
                     weight=w,
                 ))
 
-        # Implementation note.
+        # Keyword signals.
         for cat, prof in self._profiles.items():
             for kw in prof.keywords:
                 if _keyword_present(kw, text_lower):
@@ -143,13 +139,13 @@ class DocumentClassifier:
                         weight=w,
                     ))
 
-        # Implementation note.
+        # Structural-pattern signals.
         for cat, compiled in self._compiled.items():
             prof = self._profiles[cat]
             for pattern in compiled:
                 m = pattern.search(text)
                 if m:
-                    w = prof.weight * Fraction(3, 2)   # patterns valen 1.5 keywords
+                    w = prof.weight * Fraction(3, 2)   # patterns are worth 1.5 keywords
                     scores[cat] += w
                     signals.append(ClassificationSignal(
                         category=cat,
@@ -158,7 +154,7 @@ class DocumentClassifier:
                         weight=w,
                     ))
 
-        # Implementation note.
+        # Rank non-UNKNOWN categories.
         filtered = {c: s for c, s in scores.items() if c != DocCategory.UNKNOWN}
         ranked = sorted(filtered.items(), key=lambda kv: kv[1], reverse=True)
 
@@ -189,8 +185,8 @@ class DocumentClassifier:
 
     def classify_file(self, path: Path, max_bytes: int = 65_536) -> ClassificationResult:
         """
-        classifies a file leyendo until max_bytes of su content.
-        for binarios (imagenes, video) delega only to the extension hint.
+        Classify a file by reading up to max_bytes of its content.
+        For binary formats (images, video), use only the extension hint.
         """
         filename = path.name
         ext = path.suffix.lower()
@@ -202,7 +198,7 @@ class DocumentClassifier:
 
         try:
             raw = path.read_bytes()[:max_bytes]
-            # Implementation note.
+            # Detect binary content using null bytes in the first 512 bytes.
             if b"\x00" in raw[:512]:
                 return self.classify("", filename=filename)
             text = raw.decode("utf-8", errors="replace")

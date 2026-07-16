@@ -1,7 +1,7 @@
 """
 tests/test_classifier.py
 =========================
-Tests of the clasificador determinista of documents.
+Tests for the deterministic document classifier.
 """
 from fractions import Fraction
 
@@ -21,7 +21,7 @@ def clf():
 # Implementation note.
 
 def test_deterministic(clf):
-    text = "Este is a contract of hipoteca by the inmueble ubicado in Av. Siempre Viva."
+    text = "This is a mortgage contract for the property located at Evergreen Avenue."
     r1 = clf.classify(text)
     r2 = clf.classify(text)
     assert r1.category == r2.category
@@ -42,10 +42,10 @@ def test_scores_are_fractions(clf):
 
 def test_legal_document(clf):
     text = (
-        "by medio of the presente instrumento publico, ante mi the notario, "
-        "is otorga poder notarial to the senor Juan Perez for representar "
-        "a the sociedad in all the actos judiciales and extrajudiciales. "
-        "Este testamento is of last voluntad."
+        "By means of this public instrument, before me the notary, "
+        "power of attorney is granted to Mr. Juan Perez to represent "
+        "the company in all judicial and extrajudicial acts. "
+        "This will expresses the last wishes."
     )
     result = clf.classify(text, filename="poder_notarial.pdf")
     assert result.category == DocCategory.LEGAL
@@ -54,10 +54,10 @@ def test_legal_document(clf):
 
 def test_financial_document(clf):
     text = (
-        "Extracto bancario - Cuenta: ES21 1234 5678 9101 1121 3141 "
-        "Saldo disponible: 12,450.00 "
-        "Su inversion in fondos of jubilacion ha generado dividendos. "
-        "Proxima facturacion of the seguro of vida: 15/08/2026."
+        "Bank statement - Account: ES21 1234 5678 9101 1121 3141 "
+        "Available balance: 12,450.00 "
+        "The investment in retirement funds generated dividends. "
+        "Next billing date for life insurance: 08/15/2026."
     )
     result = clf.classify(text, filename="extracto.pdf")
     assert result.category == DocCategory.FINANCIAL
@@ -65,10 +65,10 @@ def test_financial_document(clf):
 
 def test_medical_document(clf):
     text = (
-        "diagnosis: Hipertension arterial. "
-        "Medicamento: Enalapril 10mg each 24 horas. "
-        "Proximo control in hospital in 30 dias. "
-        "analysis of laboratorio pendiente."
+        "Diagnosis: Arterial hypertension. "
+        "Medication: Enalapril 10mg every 24 hours. "
+        "Next hospital checkup in 30 days. "
+        "Pending laboratory analysis."
     )
     result = clf.classify(text)
     assert result.category == DocCategory.MEDICAL
@@ -76,17 +76,17 @@ def test_medical_document(clf):
 
 def test_subscription_document(clf):
     text = (
-        "Tu suscripcion a Netflix is renovara automatically. "
-        "Cargo mensual: $15.99. Proxima factura: 01/08/2026. "
-        "for cancelar before of the renovacion, ingresa a tu cuenta."
+        "Your Netflix subscription will renew automatically. "
+        "Monthly charge: $15.99. Next bill: 08/01/2026. "
+        "To cancel before renewal, log in to your account."
     )
     result = clf.classify(text)
     assert result.category == DocCategory.SUBSCRIPTION
 
 
 def test_unknown_short_text(clf):
-    result = clf.classify("hola mundo")
-    # Implementation note.
+    result = clf.classify("hello world")
+    # An uninformative document should remain low-confidence.
     assert result.confidence == "LOW" or result.category == DocCategory.UNKNOWN
 
 
@@ -100,13 +100,13 @@ def test_empty_text(clf):
 # Implementation note.
 
 def test_image_classified_as_media(clf):
-    result = clf.classify("", filename="foto_vacaciones.jpg")
+    result = clf.classify("", filename="vacation_photo.jpg")
     assert result.category == DocCategory.MEDIA
 
 
 def test_excel_gets_financial_hint(clf):
-    # Implementation note.
-    result = clf.classify("", filename="presupuesto.xlsx")
+    # Spreadsheet files provide a financial extension hint.
+    result = clf.classify("", filename="budget.xlsx")
     assert result.category == DocCategory.FINANCIAL
 
 
@@ -124,7 +124,7 @@ def test_signals_are_recorded(clf):
 
 def test_content_hash_is_sha256(clf):
     import hashlib
-    text = "content of prueba"
+    text = "sample content"
     result = clf.classify(text)
     expected = hashlib.sha256(text.encode("utf-8")).hexdigest()
     assert result.content_hash == expected
@@ -135,9 +135,9 @@ def test_content_hash_is_sha256(clf):
 # Implementation note.
 
 def test_no_float_in_scores(clf):
-    """the path of decision no must contener floats."""
-    text = "Este contract of hipoteca cubre the inmueble with folio real 12345."
+    """The decision path must not contain floats."""
+    text = "This mortgage contract covers the property with real folio 12345."
     result = clf.classify(text)
     for score in result.scores.values():
-        assert not isinstance(score, float), f"Float encontrado: {score!r}"
+        assert not isinstance(score, float), f"Float found: {score!r}"
         assert isinstance(score, Fraction)
