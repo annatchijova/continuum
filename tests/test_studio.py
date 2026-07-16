@@ -175,3 +175,11 @@ def test_server_refuses_non_loopback_host():
         server.main(["--host", "0.0.0.0"])
 
     assert exc.value.code == 2
+
+
+def test_answer_renderer_treats_narration_and_sources_as_text():
+    script = (Path(__file__).parents[1] / "continuum_web/static/app.js").read_text()
+
+    assert "function renderAnswer" in script
+    assert "narration.append(label, document.createElement" in script
+    assert "answer.innerHTML" not in script

@@ -8,6 +8,21 @@ async function api(path, payload = {}) {
   return body;
 }
 function toast(message, error = false) { const el = $("toast"); el.textContent = message; el.className = `toast show ${error ? "error" : ""}`; setTimeout(() => el.className = "toast", 4200); }
+function renderAnswer(container, result) {
+  container.replaceChildren();
+  if (result.narration) {
+    const narration = document.createElement("p"); narration.className = "narration";
+    const label = document.createElement("b"); label.textContent = "CHATGPT GUIDE";
+    narration.append(label, document.createElement("br"), document.createTextNode(result.narration)); container.append(narration);
+  }
+  const answer = document.createElement("p"); answer.textContent = result.answer; container.append(answer);
+  if (result.sources.length) {
+    const label = document.createElement("div"); label.className = "source-label"; label.textContent = "SOURCES FOUND";
+    const list = document.createElement("ul");
+    result.sources.forEach((source) => { const item = document.createElement("li"); const badge = document.createElement("span"); badge.textContent = categories[source.category] || source.category; item.append(badge, document.createTextNode(source.artifact ? source.artifact.split("/").pop() : source.excerpt)); list.append(item); });
+    container.append(label, list);
+  }
+}
 function showStudio(data) {
   $("onboarding").hidden = true; $("studio").hidden = false; $("lockButton").hidden = false;
   $("ownerName").textContent = (data.owner_id || "there").split(" ")[0];
@@ -33,5 +48,5 @@ $("captureForm").addEventListener("submit", async (event) => { event.preventDefa
 $("guideButton").addEventListener("click", async () => { try { const result = await api("/api/heir-guide"); $("guideContent").textContent = result.guide; $("guideCard").hidden = false; $("guideCard").scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { toast(e.message, true); } });
 $("verifyButton").addEventListener("click", async () => { try { const result = await api("/api/integrity"); $("integrityText").textContent = result.valid ? (result.audit.hmac_checked ? "HMAC verified" : "hash-only") : "needs attention"; const state = result.audit.hmac_checked ? "HMAC-protected" : "hash-only"; toast(result.valid ? `${state}: audit and ${result.memory.checked} memory records verified.` : "Integrity needs attention.", !result.valid); } catch (e) { toast(e.message, true); } });
 $("closeGuide").addEventListener("click", () => $("guideCard").hidden = true);
-$("askForm").addEventListener("submit", async (event) => { event.preventDefault(); const answer = $("answer"); try { answer.className = "answer loading"; answer.textContent = "Finding the relevant thread…"; const result = await api("/api/ask", { question: $("question").value, allow_narration: $("narrationConsent").checked }); const sources = result.sources.map(s => `<li><span>${categories[s.category] || s.category}</span>${s.artifact ? s.artifact.split("/").pop() : s.excerpt}</li>`).join(""); const narration = result.narration ? `<p class="narration"><b>CHATGPT GUIDE</b><br>${result.narration.replace(/\n/g, "<br>")}</p>` : ""; answer.className = "answer"; answer.innerHTML = `${narration}<p>${result.answer.replace(/\n/g, "<br>")}</p>${sources ? `<div class="source-label">SOURCES FOUND</div><ul>${sources}</ul>` : ""}`; } catch (e) { answer.className = "answer"; answer.textContent = e.message; } });
+$("askForm").addEventListener("submit", async (event) => { event.preventDefault(); const answer = $("answer"); try { answer.className = "answer loading"; answer.textContent = "Finding the relevant thread…"; const result = await api("/api/ask", { question: $("question").value, allow_narration: $("narrationConsent").checked }); answer.className = "answer"; renderAnswer(answer, result); } catch (e) { answer.className = "answer"; answer.textContent = e.message; } });
 $("lockButton").addEventListener("click", async () => { await api("/api/lock"); $("studio").hidden = true; $("onboarding").hidden = false; $("lockButton").hidden = true; $("navStatus").textContent = "Protected local workspace"; $("passphrase").value = ""; toast("Workspace locked. Your passphrase is cleared from this browser."); window.scrollTo({ top: 0, behavior: "smooth" }); });

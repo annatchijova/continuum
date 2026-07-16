@@ -1,4 +1,5 @@
 .narration{border-left:3px solid #df826c;padding-left:10px;color:#315649!important}.narration b{font-size:10px;font-family:'DM Mono';letter-spacing:.4px;color:#a45d4c}
+.answer p{white-space:pre-wrap}
 .consent{display:flex;grid-template-columns:none;align-items:flex-start;gap:8px;margin-top:11px;font-size:10px;font-weight:500;color:#657470;line-height:1.4}.consent input{width:14px;height:14px;margin:0;accent-color:#173e3c}
 .heir-key{grid-column:1/-1}.heir-key small{font-size:10px;color:#71807c;font-weight:500}
 .heading-actions{display:flex;align-items:center;gap:10px}.guide-button{background:#edf2ee;color:#28574e;border:1px solid #d5e1d9;padding:10px 12px;border-radius:10px;font-size:11px;font-weight:700}.guide-button:hover{background:#e1ebe4}.guide-card{border:1px solid var(--line);border-radius:18px;background:var(--card);padding:25px;margin-bottom:17px}.guide-card .section-kicker{justify-content:space-between}.guide-card pre{margin:20px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.65 'DM Mono',monospace;color:#354743}@media(max-width:800px){.heading-actions{align-items:flex-start;flex-direction:column}}
