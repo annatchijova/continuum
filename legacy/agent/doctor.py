@@ -1,14 +1,14 @@
 """
 legacy/agent/doctor.py
 =======================
-Chequeo integral of salud of the legado  a only veredicto.
+Comprehensive legacy health check with a single verdict.
 
-the verificaciones of integridad estaban dispersas: `verify_audit()` mira
-the hash chain, `verify_memory_integrity()` cruza vault vs memory.db, and the
-ArtifactStore verifica to the leer. KL-008b documenta that are mutuamente
-ciegas: a audit trail valid convive with a memory.db corrupta. the
-doctor the ejecuta all and adds sanity checks of the politica that no
-module cubria (last_activity in the futuro? fecha of unlock unreadable?).
+Integrity checks were previously scattered: `verify_audit()` checks the hash
+chain, `verify_memory_integrity()` compares the vault with memory.db, and the
+ArtifactStore verifies artifacts while reading them. KL-008b documents that
+these checks are mutually blind: a valid audit trail can coexist with a
+corrupt memory.db. The doctor runs all checks and adds policy sanity checks
+that no module covered (last_activity in the future? unreadable unlock date?).
 
 Checks:
   files               vault / audit.db / memory.db presentes
@@ -16,10 +16,10 @@ Checks:
   memory_integrity    vault index  memory.db (incluye ghost memories)
   artifact_store      each artifact archivado decrypts and su hash matches
                        (only if is provee passphrase)
-  policy_sanity       conditions parseables and temporalmente coherentes
+  policy_sanity       parseable and temporally coherent conditions
 
-the doctor NO repara nada: diagnostica and registra the result in the
-audit trail (evento DOCTOR_RUN). Reparar is decision of the owner.
+The doctor repairs nothing: it diagnoses and records the result in the audit
+trail (DOCTOR_RUN event). Repair is the owner's decision.
 """
 from __future__ import annotations
 
@@ -34,10 +34,10 @@ from legacy.vault.conditions import (
     InactivityCondition,
 )
 
-# Implementation note.
+# Clock skew tolerated when checking timestamps.
 _CLOCK_SKEW = timedelta(minutes=5)
 
-# Implementation note.
+# Minimum acceptable PBKDF2 iteration count for heir keys.
 _MIN_KEY_ITERATIONS = 100_000
 
 
@@ -65,15 +65,15 @@ class DoctorReport:
 
 
 def _check_policy(policy_dict: Optional[Dict[str, Any]]) -> CheckResult:
-    """Sanity of the politica: parseable and temporalmente coherente."""
+    """Check that the policy is parseable and temporally coherent."""
     if not policy_dict:
         return CheckResult(
-            "policy_sanity", True, "without politica  acceso abierto (intencional?)"
+            "policy_sanity", True, "no policy; open access (intentional?)"
         )
     try:
         policy = AccessPolicy.from_dict(policy_dict)
     except (ValueError, KeyError, TypeError) as exc:
-        return CheckResult("policy_sanity", False, f"política no parseable: {exc}")
+        return CheckResult("policy_sanity", False, f"policy is not parseable: {exc}")
 
     now = datetime.now(timezone.utc)
     problems: List[str] = []
@@ -85,56 +85,56 @@ def _check_policy(policy_dict: Optional[Dict[str, Any]]) -> CheckResult:
                     last = last.replace(tzinfo=timezone.utc)
                 if last - now > _CLOCK_SKEW:
                     problems.append(
-                        f"last_activity_iso en el futuro ({cond.last_activity_iso}) "
-                        f"— la condición de inactividad nunca se cumpliría"
+                        f"last_activity_iso is in the future ({cond.last_activity_iso}) "
+                        f"— the inactivity condition would never be met"
                     )
                 if cond.days <= 0:
-                    problems.append(f"inactivity days={cond.days} — se cumple siempre")
+                    problems.append(f"inactivity days={cond.days} — always satisfied")
             except ValueError:
                 problems.append(
-                    f"last_activity_iso ilegible: {cond.last_activity_iso!r}"
+                    f"last_activity_iso is unreadable: {cond.last_activity_iso!r}"
                 )
         elif isinstance(cond, DateCondition):
             try:
                 datetime.fromisoformat(cond.unlock_after_iso)
             except ValueError:
                 problems.append(
-                    f"unlock_after_iso ilegible: {cond.unlock_after_iso!r} "
-                    f"— el vault jamás se activaría por fecha"
+                    f"unlock_after_iso is unreadable: {cond.unlock_after_iso!r} "
+                    f"— the vault would never activate by date"
                 )
         elif isinstance(cond, HeirKeyCondition):
             if cond.iterations < _MIN_KEY_ITERATIONS:
                 problems.append(
-                    f"heir_key iterations={cond.iterations} — piso {_MIN_KEY_ITERATIONS}"
+                    f"heir_key iterations={cond.iterations} — minimum {_MIN_KEY_ITERATIONS}"
                 )
             try:
                 bytes.fromhex(cond.salt_hex)
                 bytes.fromhex(cond.key_hash)
             except ValueError:
-                problems.append(f"heir_key de {cond.heir_id}: salt/hash no hex")
+                problems.append(f"heir_key for {cond.heir_id}: salt/hash is not hexadecimal")
 
     if problems:
         return CheckResult("policy_sanity", False, "; ".join(problems))
     n = len(policy.conditions)
     return CheckResult(
-        "policy_sanity", True, f"{n} condición(es) coherente(s), operador {policy.operator.value}"
+        "policy_sanity", True, f"{n} coherent condition(s), operator {policy.operator.value}"
     )
 
 
 def run_doctor(agent, passphrase: Optional[str] = None) -> DoctorReport:
     """
-    Ejecuta all the chequeos over a agente with the vault ABIERTO.
+    Run all checks on an agent with the vault unlocked.
 
-    agent      : LegacyAgent desbloqueado (open_owner previo).
-    passphrase : necesaria only for verificar the ArtifactStore; if is
-                 None ese check is omite (is reporta as skipped-ok).
+    agent      : LegacyAgent unlocked by a previous open_owner call.
+    passphrase : required only to verify the ArtifactStore; when None, that
+                 check is skipped and reported as successful.
     """
     if not agent._unlocked or agent._index is None:
-        raise RuntimeError("Vault cerrado. the doctor needs the vault abierto.")
+        raise RuntimeError("Vault is locked. The doctor requires an unlocked vault.")
 
     checks: List[CheckResult] = []
 
-    # Implementation note.
+    # Check required files.
     missing = [
         name for name, p in [
             ("legacy.vault", agent._data_dir / "legacy.vault"),
@@ -145,38 +145,36 @@ def run_doctor(agent, passphrase: Optional[str] = None) -> DoctorReport:
     checks.append(CheckResult(
         "files",
         not missing,
-        "all the files presentes" if not missing
-        else f"faltan: {', '.join(missing)}",
+        "all files present" if not missing
+        else f"missing: {', '.join(missing)}",
     ))
 
-    # Implementation note.
+    # Check the audit hash chain.
     audit = agent.verify_audit()
     checks.append(CheckResult(
         "audit_chain",
         bool(audit["valid"]),
         (f"{audit['length']} eventos, "
-         f"{'HMAC verificado' if audit['hmac_checked'] else 'hash-only (without a key HMAC)'}")
+         f"{'HMAC verified' if audit['hmac_checked'] else 'hash-only (no HMAC key)'}")
         if audit["valid"]
-        else f"cadena inválida desde seq={audit['first_invalid_seq']}: "
+        else f"invalid chain from seq={audit['first_invalid_seq']}: "
              f"{audit['summary']}",
     ))
 
-    # Implementation note.
+    # Check vault-to-memory integrity.
     mem = agent.verify_memory_integrity()
     checks.append(CheckResult(
         "memory_integrity",
         bool(mem["ok"]),
-        f"{mem['checked']} artifact(s) cruzados sin divergencia" if mem["ok"]
+        f"{mem['checked']} artifact(s) cross-checked with no divergence" if mem["ok"]
         else "; ".join(mem["errors"][:5]),
     ))
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Check archived artifact integrity.
     hashes = agent._store.list_hashes()
     if not hashes:
         checks.append(CheckResult(
-            "artifact_store", True, "store empty  nada that verificar"
+            "artifact_store", True, "store is empty; nothing to verify"
         ))
     else:
         bad = [
@@ -186,15 +184,15 @@ def run_doctor(agent, passphrase: Optional[str] = None) -> DoctorReport:
             "artifact_store",
             not bad,
             f"{len(hashes)} artifact(s) decrypted and intact" if not bad
-            else f"{len(bad)}/{len(hashes)} corruptos, manipulados o sin "
-                 f"secreto disponible: "
+            else f"{len(bad)}/{len(hashes)} corrupt, tampered, or without "
+                 f"an available secret: "
                  + ", ".join(h[:16] + "..." for h in bad[:3]),
         ))
 
-    # Implementation note.
+    # Check policy consistency.
     checks.append(_check_policy(agent._index.policy))
 
-    # Implementation note.
+    # Check custody metadata and v2 artifact compatibility.
     info = agent._vault.info()
     version = info.get("version")
     slots = info.get("keyslots", [])
@@ -203,40 +201,40 @@ def run_doctor(agent, passphrase: Optional[str] = None) -> DoctorReport:
         v2_artifacts = [
             h for h in hashes if agent._store.envelope_version(h) == "2"
         ]
-        # Implementation note.
+        # A v2 artifact without a vault store key cannot be recovered.
         orphan_v2 = bool(v2_artifacts) and not agent._index.store_key_hex
         checks.append(CheckResult(
             "custody",
             not orphan_v2,
             (f"vault v2, slots={slots}"
-             + (", custodia configurada" if has_recovery
-                else ", without custodia (the shares no existen)"))
+             + (", custody configured" if has_recovery
+                else ", no custody (shares do not exist)"))
             if not orphan_v2
-            else f"{len(v2_artifacts)} artifact(s) v2 pero el vault no "
-                 f"tiene store key — irrecuperables",
+            else f"{len(v2_artifacts)} artifact(s) are v2 but the vault has no "
+                 f"store key — unrecoverable",
         ))
     else:
         checks.append(CheckResult(
             "custody", True,
-            f"vault v{version} (formato original) — sin keyslots; "
-            f"se migra a v2 en el próximo re-sellado",
+            f"vault v{version} (original format) — no keyslots; "
+            f"migrates to v2 on the next re-seal",
         ))
 
-    # Implementation note.
+    # Check database encryption status.
     has_key = bool(agent._index.db_key_hex)
 
     def _eval_db(label: str, enc: Dict[str, int]) -> tuple:
         if enc["total"] == 0:
-            return True, f"{label} vacío"
+            return True, f"{label} is empty"
         if enc["plaintext"] == 0 and has_key:
             return True, f"{label}: {enc['encrypted']} encrypted at rest"
         if not has_key and enc["encrypted"] == 0:
             return True, (f"{label}: {enc['plaintext']} in plaintext (opt-in; "
                           f"enable with `encrypt-db`)")
-        # Implementation note.
+        # Mixed encryption states require an explicit repair.
         return False, (f"{label}: mixed — {enc['encrypted']} encrypted, "
                        f"{enc['plaintext']} in plaintext, db_key="
-                       f"{'si' if has_key else 'no'}; re-corré `encrypt-db`")
+                       f"{'yes' if has_key else 'no'}; re-run `encrypt-db`")
 
     try:
         parts = [_eval_db("memory.db", agent._memory.encryption_status())]
@@ -248,7 +246,7 @@ def run_doctor(agent, passphrase: Optional[str] = None) -> DoctorReport:
             "db_encryption", ok_enc, "  ".join(p[1] for p in parts)
         ))
     except Exception as exc:
-        checks.append(CheckResult("db_encryption", False, f"no evaluable: {exc}"))
+        checks.append(CheckResult("db_encryption", False, f"not evaluable: {exc}"))
 
     ok = all(c.ok for c in checks)
     agent._audit.append(

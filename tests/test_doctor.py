@@ -1,7 +1,7 @@
 """
 tests/test_doctor.py
 =====================
-Doctor: chequeo integral of salud of the legado.
+Doctor: comprehensive legacy health check.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def _make_agent(tmp_path, policy=None) -> LegacyAgent:
     agent = LegacyAgent(tmp_path / "data", "owner")
     agent.initialize(PASS, policy=policy)
     src = tmp_path / "contract.txt"
-    src.write_text("contract of compraventa firmado ante the notario", encoding="utf-8")
+    src.write_text("sales contract signed before the notary", encoding="utf-8")
     agent.ingest(src)
     agent.archive_artifact(src, PASS)
     return agent
@@ -31,9 +31,7 @@ def _check(report, name):
     return next(c for c in report.checks if c.name == name)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Basic doctor behavior.
 
 def test_healthy_vault_passes_all_checks(tmp_path):
     agent = _make_agent(tmp_path)
@@ -59,17 +57,15 @@ def test_doctor_requires_unlocked(tmp_path):
 
 
 def test_doctor_without_passphrase_verifies_v2_via_store_key(tmp_path):
-    """the artifacts v2 is verifican with the store key of the vault  the
-    passphrase already no is necesaria for este check."""
+    """V2 artifacts are verified with the vault store key; the passphrase
+    is not required for this check."""
     agent = _make_agent(tmp_path)
     report = run_doctor(agent)          # without a passphrase
     c = _check(report, "artifact_store")
     assert c.ok and "intact" in c.detail
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Integrity failure behavior.
 
 def test_detects_tampered_memory_db(tmp_path):
     agent = _make_agent(tmp_path)
@@ -100,9 +96,7 @@ def test_detects_corrupted_archived_artifact(tmp_path):
     assert not _check(report, "artifact_store").ok
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Policy sanity checks.
 
 def test_detects_future_last_activity(tmp_path):
     future = (datetime.now(timezone.utc) + timedelta(days=365)).isoformat()
@@ -111,22 +105,22 @@ def test_detects_future_last_activity(tmp_path):
     report = run_doctor(agent, passphrase=PASS)
     assert not report.ok
     c = _check(report, "policy_sanity")
-    assert not c.ok and "futuro" in c.detail
+    assert not c.ok and "future" in c.detail
 
 
 def test_db_encryption_check_reflects_state(tmp_path):
     agent = _make_agent(tmp_path)
-    # Implementation note.
+    # The initial database is intentionally plaintext.
     c = _check(run_doctor(agent, passphrase=PASS), "db_encryption")
     assert c.ok and "in plaintext" in c.detail
-    # Implementation note.
+    # Encryption moves all fields to encrypted-at-rest storage.
     agent.encrypt_database(PASS)
     c = _check(run_doctor(agent, passphrase=PASS), "db_encryption")
     assert c.ok and "at rest" in c.detail and "in plaintext" not in c.detail
 
 
 def test_no_policy_is_ok_but_flagged(tmp_path):
-    agent = _make_agent(tmp_path)      # without politica
+    agent = _make_agent(tmp_path)      # without a policy
     report = run_doctor(agent, passphrase=PASS)
     c = _check(report, "policy_sanity")
-    assert c.ok and "without politica" in c.detail
+    assert c.ok and "no policy" in c.detail
