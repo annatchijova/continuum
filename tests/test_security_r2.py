@@ -93,7 +93,7 @@ def test_r2_002_reinforce_memory_requires_open_vault(tmp_path):
     agent.initialize("pass")
     agent.lock("pass")
 
-    with pytest.raises(RuntimeError, match="Vault cerrado"):
+    with pytest.raises(RuntimeError, match="Vault is locked"):
         agent.reinforce_memory("any-id")
 
 
@@ -105,7 +105,7 @@ def test_r2_002_forget_memory_requires_open_vault(tmp_path):
     agent.initialize("pass")
     agent.lock("pass")
 
-    with pytest.raises(RuntimeError, match="Vault cerrado"):
+    with pytest.raises(RuntimeError, match="Vault is locked"):
         agent.forget_memory("any-id")
 
 

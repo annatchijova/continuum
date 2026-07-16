@@ -28,7 +28,7 @@ def test_revoked_heir_denied_even_with_valid_key(tmp_path):
     heir = LegacyAgent(tmp_path, "owner")
     assert heir.open_heir("h1", PASS, heir_key=secret) is False
     denied = [e for e in heir._audit.events(event_type="ACCESS_DENIED")]
-    assert any("revocado" in (e["detail"] or "") for e in denied)
+    assert any("revoked" in (e["detail"] or "") for e in denied)
 
 
 def test_revoke_removes_key_condition_but_keeps_history(tmp_path):

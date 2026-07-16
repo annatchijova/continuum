@@ -433,11 +433,11 @@ class TestIdempotence:
 
     # Implementation note.
     def test_idem_005_double_initialize_raises_not_corrupts(self, agent_dir, doc):
-        """initialize() falla if already exists, pero no corrompe the vault."""
+        """initialize() fails when the vault exists without corrupting it."""
         from legacy.agent.memory_agent import LegacyAgent
         agent, data = agent_dir
 
-        with pytest.raises(ValueError, match="the vault already exists"):
+        with pytest.raises(ValueError, match="The vault already exists"):
             agent.initialize("passphrase-segura")
 
         # Implementation note.

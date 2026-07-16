@@ -1,22 +1,22 @@
 """
 legacy/agent/memory_agent.py
 =============================
-Orquestador principal of the legado digital.
+Main digital-legacy orchestrator.
 
-Ciclo of vida:
-  1. owner ingiere artifacts (documents, fotos, notas).
-  2. Clasificador asigna categoria determinista.
-  3. field of memory almacena content + embedding.
-  4. Vault encrypts the index with the passphrase of the owner.
-  5. Audit trail registra each operation with hash chain.
+Lifecycle:
+  1. Owner ingests artifacts (documents, photos, notes).
+  2. The classifier assigns a deterministic category.
+  3. The memory field stores content and embeddings.
+  4. The vault encrypts the index with the owner's passphrase.
+  5. The audit trail records every operation in a hash chain.
 
-  to the activarse the acceso (condition cumplida):
-  6. heir provee key  vault is opens.
-  7. Query engine responde questions over the legado.
+When access activates (the condition is met):
+  6. The heir provides a key and the vault opens.
+  7. The query engine answers questions about the legacy.
 
-the agente opera in dos modos:
-  OWNER   owner ingiere and gestiona.
-  HEIR    heir (only lectura post-activacion).
+The agent operates in two modes:
+  OWNER   owner ingests and manages.
+  HEIR    heir (read-only after activation).
 """
 from __future__ import annotations
 
@@ -50,9 +50,7 @@ from legacy.vault.artifact_store import ArtifactStore
 from legacy.vault.conditions import AccessPolicy, HeirKeyCondition, InactivityCondition
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Artifact and legacy-index data models.
 
 @dataclass
 class ArtifactRecord:
@@ -84,12 +82,9 @@ class LegacyIndex:
     heirs: List[Dict[str, Any]] = field(default_factory=list)
     policy: Optional[Dict[str, Any]] = None
     notes: str = ""
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Store encryption key, sealed inside the vault.
     store_key_hex: str = ""
-    # Implementation note.
-    # Implementation note.
+    # Database encryption key, sealed inside the vault.
     db_key_hex: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
@@ -100,18 +95,15 @@ class LegacyIndex:
         return LegacyIndex(**d)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Legacy agent.
 
 class LegacyAgent:
     """
-    Agente principal of legado digital.
+    Main digital-legacy agent.
 
-    data_dir   : directory of trabajo of the agente (audit_trail, memory, vault).
-    owner_id   : identificador of the owner (does not have that be PII  can
-                 be a hash o a alias).
-    hmac_key   : bytes for the HMAC of the audit trail. None  variable of entorno.
+    data_dir   : agent working directory (audit trail, memory, vault).
+    owner_id   : owner identifier (does not need to be PII; may be a hash or alias).
+    hmac_key   : audit-trail HMAC bytes. None means use the environment variable.
     """
 
     def __init__(
@@ -134,11 +126,11 @@ class LegacyAgent:
         self._classifier = DocumentClassifier()
         self._index: Optional[LegacyIndex] = None
         self._unlocked: bool = False
-        self._knowledge = None   # lazy  knowledge.db only is crea if is usa
+        self._knowledge = None   # lazy; knowledge.db is created only when used
 
     @property
     def knowledge(self):
-        """KnowledgeBase of the legado (is crea to the primer uso)."""
+        """KnowledgeBase for the legacy (created on first use)."""
         if self._knowledge is None:
             from legacy.knowledge.extractor import KnowledgeBase
             self._knowledge = KnowledgeBase(
@@ -147,22 +139,20 @@ class LegacyAgent:
         return self._knowledge
 
     def _store_key_none_safe_db_key(self) -> Optional[bytes]:
-        """db_key of the index if the vault is abierto and the tiene; if no, None."""
+        """Return the index db_key when the unlocked index has one; otherwise None."""
         if self._index and self._index.db_key_hex:
             return bytes.fromhex(self._index.db_key_hex)
         return None
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Vault lifecycle.
 
     def initialize(self, passphrase: str, policy: Optional[AccessPolicy] = None) -> None:
         """
-        Crea the vault initial. only is llama once by owner.
-        if already exists, lanza ValueError.
+        Create the initial vault. Call once by the owner.
+        Raise ValueError if it already exists.
         """
         if self._vault.exists():
-            raise ValueError("the vault already exists. Usa open_owner() for abrirlo.")
+            raise ValueError("The vault already exists. Use open_owner() to open it.")
 
         now = datetime.now(timezone.utc).isoformat()
         self._index = LegacyIndex(
@@ -178,7 +168,7 @@ class LegacyAgent:
         self._audit.append(
             "VAULT_CREATED",
             actor=self._owner_id,
-            detail=f"vault inicializado, policy={'set' if policy else 'none'}",
+            detail=f"vault initialized, policy={'set' if policy else 'none'}",
         )
 
     def open_owner(self, passphrase: str) -> None:
@@ -190,13 +180,13 @@ class LegacyAgent:
         self._audit.append(
             "VAULT_UNLOCKED",
             actor=self._owner_id,
-            detail="acceso owner",
+            detail="owner access",
         )
 
     def lock(self, passphrase: str) -> None:
-        """Re-encrypts the vault with the state actual."""
+        """Re-encrypt the vault with its current state."""
         if not self._unlocked or self._index is None:
-            raise RuntimeError("Vault no is abierto.")
+            raise RuntimeError("Vault is not open.")
         self._index.last_updated = datetime.now(timezone.utc).isoformat()
         self._vault.seal(self._index.to_dict(), passphrase)
         self._unlocked = False
@@ -204,41 +194,39 @@ class LegacyAgent:
 
     def rekey(self, old_passphrase: str, new_passphrase: str) -> Dict[str, Any]:
         """
-        Rota the passphrase. Complemento of revoke_heir  revocar a alguien
-        that already conoce the passphrase no sirve without poder cambiarla (KL-011).
+        Rotate the passphrase. Revoking an heir is insufficient when someone
+        already knows the passphrase; it must be changed (KL-011).
 
-        with the vault v2 (keyslots) the rotation is a rewrap of the slot of
-        passphrase: the payload no is re-encrypts and the slot of recovery
-        (custodia) SOBREVIVE  the shares repartidos siguen siendo validos.
+        With the v2 keyslot vault, rotation rewraps only the passphrase slot:
+        the payload is not re-encrypted and the recovery slot survives.
 
-        Tres pasos, each uno re-ejecutable tras a crash:
-          1. Garantizar the store key sellada in the vault (with the old).
-          2. Convertir artifacts v1 (passphrase)  v2 (store key). A partir
-             of aca the artifacts are independientes of the passphrase.
-          3. Rewrap of the keyslot of passphrase (old  new).
-        if the proceso muere in 1-2, the vault opens with the old and re-correr
-        rekey(old, new) complete the trabajo (the already convertidos is are skipped).
-        if muere after of 3, the rotation already is complete.
+        Three steps, each safe to rerun after a crash:
+          1. Ensure the store key is sealed in the vault using the old passphrase.
+          2. Convert v1 artifacts (passphrase) to v2 (store key). Artifacts are
+             then independent of the passphrase.
+          3. Rewrap the passphrase keyslot (old to new).
+        If the process stops during steps 1–2, the vault opens with the old
+        passphrase and rerunning rekey(old, new) completes the work. Converted
+        artifacts are skipped. After step 3, rotation is complete.
 
-        to the finish, the agente remains desbloqueado with the index fresco.
+        At the end, the agent remains unlocked with the refreshed index.
         """
         if not new_passphrase:
-            raise ValueError("the passphrase new no can be empty.")
+            raise ValueError("The new passphrase cannot be empty.")
 
-        # Implementation note.
+        # Open and apply the old key before changing anything.
         raw = self._vault.open(old_passphrase)
         self._index = LegacyIndex.from_dict(raw)
         self._unlocked = True
         self._apply_db_key()
 
-        # Implementation note.
-        # Implementation note.
+        # Ensure the store key exists and convert legacy artifacts.
         key = self._ensure_store_key(old_passphrase)
 
-        # Implementation note.
+        # Rewrap the vault passphrase slot.
         stats = self._store.convert_to_key(old_passphrase, key)
 
-        # Implementation note.
+        # Record the completed rotation.
         self._vault.rewrap_passphrase(old_passphrase, new_passphrase)
 
         self._audit.append(
@@ -250,38 +238,35 @@ class LegacyAgent:
         )
         return stats
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Custody and recovery.
 
     def setup_custody(
         self, passphrase: str, *, shares: int, threshold: int
     ) -> List[str]:
         """
-        Configura the recovery by custodios:
-          1. generates a recovery key aleatoria of 32 bytes.
-          2. the adds as keyslot of the vault (envuelve the data key).
-          3. the parte in `shares` fragmentos with umbral `threshold`
-             (Shamir over GF(2^8)) and the DESCARTA.
+        Configure custodian recovery:
+          1. Generate a random 32-byte recovery key.
+          2. Add it as a vault keyslot (wrapping the data key).
+          3. Split it into `shares` fragments with `threshold`
+             (Shamir over GF(2^8)), then discard the key.
 
-        returns the shares serializados  ESTA is the UNICA VEZ that EXISTEN:
-        ni the recovery key ni the shares is persisten in no lado.
-        any subconjunto of `threshold` custodios reconstruye the
-        key; less that eso no obtiene informacion some.
+        Return serialized shares. This is the only time they exist:
+        neither the recovery key nor the shares are persisted anywhere.
+        Any subset of `threshold` custodians reconstructs the key; fewer
+        shares reveal no information.
 
-        Re-configurar replaces the slot: the shares previous remain
-        inservibles (revocacion of custodios of facto).
+        Reconfiguring replaces the slot; previous shares become unusable,
+        effectively revoking the custodians.
         """
         if threshold < 2:
             raise ValueError(
-                "threshold must be >= 2  with umbral 1 each custodio "
-                "can open the legado by si only."
+                "threshold must be >= 2; with threshold 1, each custodian "
+                "could open the legacy alone."
             )
         if shares < threshold:
-            raise ValueError(f"shares ({shares}) debe ser >= threshold ({threshold}).")
+            raise ValueError(f"shares ({shares}) must be >= threshold ({threshold}).")
 
-        # Implementation note.
-        # Implementation note.
+        # Open the vault and convert legacy artifacts before adding custody.
         raw = self._vault.open(passphrase)
         self._index = LegacyIndex.from_dict(raw)
         self._unlocked = True
@@ -297,12 +282,12 @@ class LegacyAgent:
             "CUSTODY_CONFIGURED",
             actor=self._owner_id,
             detail=f"shares={shares} threshold={threshold} "
-                   f"(la clave y los shares no se persisten)",
+                   f"(the key and shares are not persisted)",
         )
         return [s.serialize() for s in share_objs]
 
     def remove_custody(self, passphrase: str) -> bool:
-        """removes the slot of recovery. the shares remain inservibles."""
+        """Remove the recovery slot; existing shares become unusable."""
         removed = self._vault.remove_recovery_slot(passphrase)
         self._audit.append(
             "CUSTODY_REMOVED",
@@ -311,16 +296,16 @@ class LegacyAgent:
         )
         return removed
 
-    # Implementation note.
+    # Time-lock recovery.
 
     def add_timelock(
         self, passphrase: str, squarings: int, *, modulus_bits: int = 2048
     ) -> None:
         """
-        adds a camino of recovery by time-lock puzzle: the data key
-        remains recuperable resolviendo `squarings` cuadraturas secuenciales
-        (offline, without custodios). Piso of trabajo, NO reloj of pared 
-        ver legacy/core/timelock.py. is ADICIONAL a passphrase and custodia.
+        Add a recovery path through a time-lock puzzle: the data key remains
+        recoverable by solving `squarings` sequential squarings offline,
+        without custodians. This is a work floor, not a wall clock; see
+        legacy/core/timelock.py. It is additional to passphrase and custody.
         """
         self._vault.add_timelock_slot(passphrase, squarings, modulus_bits=modulus_bits)
         self._audit.append(
@@ -338,8 +323,8 @@ class LegacyAgent:
 
     def recover_with_timelock(self, *, actor: str, progress=None) -> None:
         """
-        opens the vault resolviendo the time-lock puzzle (slow by design).
-        Deja the agente desbloqueado.
+        Open the vault by solving the time-lock puzzle (slow by design).
+        Leave the agent unlocked.
         """
         raw = self._vault.open_with_timelock(progress=progress)
         self._index = LegacyIndex.from_dict(raw)
@@ -348,15 +333,15 @@ class LegacyAgent:
         self._audit.append(
             "VAULT_RECOVERED_TIMELOCK",
             actor=actor,
-            detail="recovery by time-lock puzzle resuelto",
+            detail="recovery by solved time-lock puzzle",
         )
 
     def set_passphrase_from_timelock(
         self, new_passphrase: str, *, actor: str, progress=None
     ) -> None:
-        """Resuelve the puzzle once, fija passphrase new and opens the vault."""
+        """Solve the puzzle once, set the new passphrase, and open the vault."""
         if not new_passphrase:
-            raise ValueError("the passphrase new no can be empty.")
+            raise ValueError("The new passphrase cannot be empty.")
         self._vault.set_passphrase_with_timelock(new_passphrase, progress=progress)
         raw = self._vault.open(new_passphrase)
         self._index = LegacyIndex.from_dict(raw)
@@ -365,13 +350,13 @@ class LegacyAgent:
         self._audit.append(
             "PASSPHRASE_RESET_BY_TIMELOCK",
             actor=actor,
-            detail="passphrase restablecida tras resolver the time-lock",
+            detail="passphrase reset after solving the time-lock",
         )
 
     def recover_with_shares(self, shares: List[str], *, actor: str) -> None:
         """
-        opens the vault reconstruyendo the recovery key from the shares of
-        the custodios  without a passphrase. the agente remains desbloqueado.
+        Open the vault by reconstructing the recovery key from custodian
+        shares without a passphrase. The agent remains unlocked.
         """
         recovery_key = combine_shares(shares)
         raw = self._vault.open_with_recovery(recovery_key)
@@ -381,19 +366,19 @@ class LegacyAgent:
         self._audit.append(
             "VAULT_RECOVERED",
             actor=actor,
-            detail=f"recuperación por custodios con {len(shares)} share(s)",
+            detail=f"custodian recovery with {len(shares)} share(s)",
         )
 
     def set_passphrase_from_recovery(
         self, shares: List[str], new_passphrase: str, *, actor: str
     ) -> None:
         """
-        Restablece the passphrase of the vault usando the shares  the camino
-        complete of the heirs: reconstruyen the key with the
-        custodios, fijan su propia passphrase and operan normalmente.
+        Reset the vault passphrase using shares: the complete heir path
+        reconstructs the key with custodians, sets a new passphrase, and
+        resumes normal operation.
         """
         if not new_passphrase:
-            raise ValueError("the passphrase new no can be empty.")
+            raise ValueError("The new passphrase cannot be empty.")
         recovery_key = combine_shares(shares)
         self._vault.set_passphrase_with_recovery(recovery_key, new_passphrase)
         raw = self._vault.open(new_passphrase)
@@ -403,12 +388,10 @@ class LegacyAgent:
         self._audit.append(
             "PASSPHRASE_RESET_BY_RECOVERY",
             actor=actor,
-            detail=f"passphrase restablecida con {len(shares)} share(s)",
+            detail=f"passphrase reset with {len(shares)} share(s)",
         )
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Artifact ingestion.
 
     def ingest(
         self,
@@ -420,17 +403,17 @@ class LegacyAgent:
         extract_knowledge: bool = False,
     ) -> ArtifactRecord:
         """
-        Ingiere a artifact in the legado.
-        classifies, almacena in memory, registra in index.
+        Ingest an artifact into the legacy.
+        Classify it, store it in memory, and record it in the index.
 
         FIX F-001 (TOCTOU): the file is reads a SOLA VEZ aqui.
-        the content leido is pasa directamente to the clasificador.
-        the content_hash is of the content real that va a the memory.
+        The content read is passed directly to the classifier.
+        content_hash is computed from the exact content stored in memory.
         """
         if not self._unlocked or self._index is None:
-            raise RuntimeError("Vault no is abierto. Llama a open_owner() first.")
+            raise RuntimeError("Vault is not open. Call open_owner() first.")
 
-        # Implementation note.
+        # Read the file once to avoid TOCTOU inconsistencies.
         try:
             raw = path.read_bytes()[:65_536]
         except OSError:
@@ -442,26 +425,22 @@ class LegacyAgent:
         else:
             text_content = raw.decode("utf-8", errors="replace")
 
-        # Implementation note.
+        # Classify the exact content that was read.
         result: ClassificationResult = self._classifier.classify(
             text_content, filename=path.name
         )
         category = force_category or result.category
 
-        # Implementation note.
+        # Use a stable placeholder for binary files.
         if is_binary:
             content = f"[{category.value}] {path.name}"
         else:
             content = text_content or f"[{category.value}] {path.name}"
 
-        # Implementation note.
+        # Hash the exact content stored in memory.
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
+        # Idempotency: do not ingest the same content twice.
         for existing in self._index.artifacts:
             if existing.get("content_hash") == content_hash:
                 self._audit.append(
@@ -475,7 +454,7 @@ class LegacyAgent:
                 )
                 return ArtifactRecord.from_dict(existing)
 
-        # Implementation note.
+        # Store the content in the adaptive memory field.
         memory_id = self._memory.store(
             content=content,
             category=category,
@@ -489,7 +468,7 @@ class LegacyAgent:
             path=str(path),
             filename=path.name,
             category=category.value,
-            content_hash=content_hash,          # hash of the content real
+            content_hash=content_hash,          # hash of the actual content
             classification_confidence=result.confidence,
             memory_id=memory_id,
             ingested_at=datetime.now(timezone.utc).isoformat(),
@@ -506,11 +485,7 @@ class LegacyAgent:
                    f"hash={content_hash[:16]}",
         )
 
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
+        # Optionally extract professional knowledge from text content.
         if extract_knowledge and not is_binary and text_content:
             entry = self.knowledge.extract_and_store(
                 text_content, source_path=str(path)
@@ -535,12 +510,11 @@ class LegacyAgent:
         extract_knowledge: bool = False,
     ) -> List[ArtifactRecord]:
         """
-        Ingiere all the files in a directory.
+        Ingest all files in a directory.
 
-        FIX F-002 (symlink traversal): valida that the path resuelto
-        este dentro of the directory solicitado before of procesar.
-        Symlinks that apunten fuera are ignorados and registrados in
-        the audit trail.
+        FIX F-002 (symlink traversal): verify that the resolved path remains
+        inside the requested directory before processing. Symlinks pointing
+        outside are ignored and recorded in the audit trail.
         """
         glob_pat = "**/*" if recursive else "*"
         base = directory.resolve()
@@ -548,16 +522,16 @@ class LegacyAgent:
         for p in directory.glob(glob_pat):
             if not p.is_file():
                 continue
-            # Implementation note.
+            # Resolve and contain-check every candidate path.
             try:
                 resolved = p.resolve()
-                resolved.relative_to(base)  # lanza ValueError if is fuera
+                resolved.relative_to(base)  # raises ValueError when outside
             except ValueError:
                 self._audit.append(
                     "INGEST_SKIPPED",
                     actor=self._owner_id,
                     artifact=str(p),
-                    detail=f"symlink traversal bloqueado: {p} → {resolved}",
+                    detail=f"symlink traversal blocked: {p} → {resolved}",
                 )
                 continue
             if extensions and p.suffix.lower() not in extensions:
@@ -574,9 +548,7 @@ class LegacyAgent:
                 )
         return records
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Heir access.
 
     def open_heir(
         self,
@@ -587,11 +559,11 @@ class LegacyAgent:
         now: Optional[datetime] = None,
     ) -> bool:
         """
-        Intenta open the vault as heir.
-        Evalua the politica of acceso before of decrypt.
-        returns True if the acceso fue concedido.
+        Try to open the vault as an heir.
+        Evaluate the access policy before decrypting.
+        Return True if access is granted.
         """
-        # Implementation note.
+        # Authenticate the passphrase before evaluating policy.
         try:
             raw = self._vault.open(passphrase)
         except VaultAuthError:
@@ -604,9 +576,7 @@ class LegacyAgent:
 
         index = LegacyIndex.from_dict(raw)
 
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
+        # Revoked heirs are denied even with a valid passphrase.
         if any(
             h.get("heir_id") == heir_id and h.get("revoked_at")
             for h in index.heirs
@@ -614,7 +584,7 @@ class LegacyAgent:
             self._audit.append(
                 "ACCESS_DENIED",
                 actor=heir_id,
-                detail="heir revocado",
+                detail="heir revoked",
             )
             return False
 
@@ -624,11 +594,9 @@ class LegacyAgent:
             policy = AccessPolicy.from_dict(policy_dict)
             granted = policy.evaluate(now=now, heir_key=heir_key)
         else:
-            granted = True  # without politica  acceso abierto
+            granted = True  # no policy means open access
 
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
+        # Record the policy decision before unlocking.
         now_tag = f" now_override={now.isoformat()}" if now is not None else ""
         self._audit.append(
             "CONDITION_CHECK",
@@ -640,13 +608,11 @@ class LegacyAgent:
             self._index = index
             self._unlocked = True
             self._apply_db_key()
-            self._audit.append("VAULT_UNLOCKED", actor=heir_id, detail="acceso heir")
+            self._audit.append("VAULT_UNLOCKED", actor=heir_id, detail="heir access")
 
         return granted
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Queries and heir management.
 
     def query(
         self,
@@ -657,11 +623,11 @@ class LegacyAgent:
         top_k: int = 5,
     ) -> List[RecallResult]:
         """
-        Responde a question over the legado.
-        Registra in audit trail.
+        Answer a question about the legacy.
+        Record the query in the audit trail.
         """
         if not self._unlocked:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
 
         results = self._memory.recall(question, category=category, top_k=top_k)
         self._audit.append(
@@ -671,13 +637,11 @@ class LegacyAgent:
         )
         return results
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Heir registration and revocation.
 
     def add_heir(self, heir_id: str, display_name: str, email: str = "") -> None:
         if not self._unlocked or self._index is None:
-            raise RuntimeError("Vault no is abierto.")
+            raise RuntimeError("Vault is not open.")
         self._index.heirs.append({
             "heir_id": heir_id,
             "display_name": display_name,
@@ -692,20 +656,19 @@ class LegacyAgent:
 
     def register_heir_key(self, heir_id: str) -> str:
         """
-        generates a key secreta for the heir and adds the
-        HeirKeyCondition correspondiente a the politica of acceso.
+        Generate a secret key for the heir and add the corresponding
+        HeirKeyCondition to the access policy.
 
-        returns the key in plaintext  este is the unico momento in that exists
-        fuera of the cabeza of the owner: only su hash PBKDF2 is persiste.
-        Entregarla to the heir by a canal seguro (ver KL-011).
+        Return the key in plaintext. This is the only moment it exists outside
+        the owner's control; only its PBKDF2 hash is persisted. Deliver it to
+        the heir through a secure channel (see KL-011).
 
-        Semantica with politica existente: the condition is adds with the
-        operador vigente. with AND (default), the heir needs the key
-        and the demas conditions (defensa in profundidad); with OR, the key
-        alcanza by si sola.
+        With an existing policy, add the condition using its current operator.
+        With AND (default), the heir needs this key and every other condition;
+        with OR, the key is sufficient by itself.
         """
         if not self._unlocked or self._index is None:
-            raise RuntimeError("Vault no is abierto.")
+            raise RuntimeError("Vault is not open.")
 
         secret = secrets.token_urlsafe(32)
         cond = HeirKeyCondition.create(heir_id, secret)
@@ -727,19 +690,18 @@ class LegacyAgent:
 
     def revoke_heir(self, heir_id: str) -> bool:
         """
-        Revoca a heir: marca su entry with revoked_at (no is borra 
-        the historial remains) and removes sus HeirKeyCondition of the politica.
-        open_heir() denegara a a heir revocado aunque the politica
-        general este satisfecha.
+        Revoke an heir: mark its entry with revoked_at (history is retained)
+        and remove its HeirKeyCondition from the policy. open_heir() denies a
+        revoked heir even when the general policy is satisfied.
 
-        Nota fail-closed: if the politica remains without conditions tras quitar
-        the key, evaluate() returns False for all the heirs until
-        that the owner configure a condition new.
+        Fail-closed note: if removing the key leaves the policy without
+        conditions, evaluate() returns False for every heir until the owner
+        configures a new condition.
 
-        returns True if algo cambio (heir found o key quitada).
+        Return True if anything changed (heir found or key removed).
         """
         if not self._unlocked or self._index is None:
-            raise RuntimeError("Vault no is abierto.")
+            raise RuntimeError("Vault is not open.")
 
         found = False
         for h in self._index.heirs:
@@ -766,20 +728,18 @@ class LegacyAgent:
         )
         return found or removed_keys > 0
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Memory lifecycle operations.
 
     def reinforce_memory(self, memory_id: str) -> None:
         """
-        Eleva a memory a REINFORCED and it registra in the audit trail.
+        Promote a memory to REINFORCED and record it in the audit trail.
 
-        FIX R2-002: the call directa a MemoryField.reinforce() era silenciosa
-         any code with vault abierto podia reforzar memories falsas without
-        dejar rastro. Este metodo is the unico punto autorizado of acceso.
+        FIX R2-002: a direct call to MemoryField.reinforce() was silent; any
+        code with an open vault could reinforce false memories without a trace.
+        This method is the only authorized access point.
         """
         if not self._unlocked:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
         self._memory.reinforce(memory_id)
         self._audit.append(
             "MEMORY_REINFORCED",
@@ -789,12 +749,12 @@ class LegacyAgent:
 
     def forget_memory(self, memory_id: str) -> None:
         """
-        Marca a memory as FORGOTTEN and it registra in the audit trail.
+        Mark a memory as FORGOTTEN and record it in the audit trail.
 
-        FIX R2-002: idem. Hacer olvidar a memory verdadera era indetectable.
+        FIX R2-002: likewise, forgetting a genuine memory was undetectable.
         """
         if not self._unlocked:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
         self._memory.forget(memory_id)
         self._audit.append(
             "MEMORY_FORGOTTEN",
@@ -811,14 +771,13 @@ class LegacyAgent:
         score_decay: float = 0.98,
     ) -> ConsolidationReport:
         """
-        Ejecuta the consolidacion of the field of memory and the registra in the
-        audit trail. before the Consolidator only era invocable a mano and
-        corria without dejar rastro  mutaba estados (FORGOTTEN, REINFORCED)
-        of forma indetectable, the same problema that FIX R2-002 cerro
-        for reinforce()/forget().
+        Run memory-field consolidation and record it in the audit trail. Before
+        this wrapper, Consolidator was manually invoked without a trace and
+        mutated FORGOTTEN and REINFORCED states undetectably, the same issue
+        closed by FIX R2-002 for reinforce() and forget().
         """
         if not self._unlocked:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
         report = Consolidator(
             self._memory,
             similarity_threshold=similarity_threshold,
@@ -839,23 +798,20 @@ class LegacyAgent:
         )
         return report
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Encryption and artifact-store helpers.
 
     def _store_key(self) -> Optional[bytes]:
-        """Store key of the index, if exists (vault abierto)."""
+        """Return the index store key when present."""
         if self._index and self._index.store_key_hex:
             return bytes.fromhex(self._index.store_key_hex)
         return None
 
     def _apply_db_key(self) -> None:
         """
-        Propaga the db_key of the index to the MemoryField tras open the vault.
-        must llamarse after of each asignacion of self._index proveniente
-        of a vault decrypted (open_owner/open_heir/recover/initialize).
-        without esto, memory.db encrypted seria unreadable aunque the vault este
-        abierto  the composition break clasico between dos modulos correctos.
+        Propagate the index db_key to MemoryField after opening the vault.
+        Call this after every assignment to self._index from a decrypted vault
+        (open_owner, open_heir, recovery, or initialization). Without it,
+        encrypted memory.db would be unreadable even with an open vault.
         """
         if self._index is None:
             return
@@ -866,17 +822,16 @@ class LegacyAgent:
 
     def encrypt_database(self, passphrase: str) -> Dict[str, Any]:
         """
-        encrypts at rest memory.db (KL-001): generates a db_key, the seals in
-        the vault, and migra the rows in plaintext a ciphertext.
+        Encrypt memory.db at rest (KL-001): generate a db_key, seal it in the
+        vault, and migrate plaintext rows to ciphertext.
 
-        Orden crash-safe (as _ensure_store_key): the db_key is PERSISTE in
-        the vault before of encrypt the primera row. if the proceso muere a
-        mitad of the migracion, the database remains mixta (plaintext+ciphertext),
-        perfectamente legible with the db_key already sellada, and re-correr
-        encrypt_database the complete.
+        Crash-safe ordering (like _ensure_store_key): persist the db_key in the
+        vault before encrypting the first row. If the process stops midway,
+        the database remains mixed but readable with the sealed key; rerunning
+        encrypt_database completes the migration.
         """
         if not self._unlocked or self._index is None:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
 
         if not self._index.db_key_hex:
             db_key = secrets.token_bytes(32)
@@ -885,14 +840,12 @@ class LegacyAgent:
             self._audit.append(
                 "DB_KEY_CREATED",
                 actor=self._owner_id,
-                detail="key of encrypted of memory.db sellada in the vault",
+                detail="memory.db encryption key sealed in the vault",
             )
         self._apply_db_key()
         stats = self._memory.migrate_encryption()
 
-        # Implementation note.
-        # Implementation note.
-        # Implementation note.
+        # Knowledge encryption uses the same database key.
         kb_stats = {"migrated": 0, "skipped": 0}
         if (self._data_dir / "knowledge.db").exists():
             kb_stats = self.knowledge.migrate_encryption()
@@ -908,11 +861,10 @@ class LegacyAgent:
 
     def _ensure_store_key(self, passphrase: str) -> bytes:
         """
-        Garantiza that the index tiene store key, PERSISTIENDOLA in the
-        vault before of return. the orden importa: if a artifact is
-        cifrara with a key that only vive in memory and the proceso
-        muriera before of the proximo seal(), the artifact quedaria
-        indescifrable for siempre.
+        Ensure that the index has a store key, persisting it in the vault
+        before returning. Ordering matters: if an artifact were encrypted with
+        a key that existed only in memory and the process stopped before the
+        next seal(), the artifact would be permanently unreadable.
         """
         assert self._index is not None
         key = self._store_key()
@@ -924,24 +876,24 @@ class LegacyAgent:
         self._audit.append(
             "STORE_KEY_CREATED",
             actor=self._owner_id,
-            detail="key of the artifact store generada and sellada in the vault",
+            detail="artifact-store key generated and sealed in the vault",
         )
         return key
 
     def _artifact_secret(self, artifact_hash: str, passphrase: Optional[str]):
-        """Secreto correcto for the envelope: store key (v2) o passphrase (v1)."""
+        """Return the correct envelope secret: store key (v2) or passphrase (v1)."""
         if self._store.envelope_version(artifact_hash) == "2":
             key = self._store_key()
             if key is None:
                 raise VaultAuthError(
-                    f"El artifact {artifact_hash[:16]}… es v2 pero el vault "
-                    f"no tiene store key — vault y store desincronizados."
+                    f"Artifact {artifact_hash[:16]}… is v2, but the vault "
+                    f"has no store key — vault and store are out of sync."
                 )
             return key
         if passphrase is None:
             raise VaultAuthError(
-                f"El artifact {artifact_hash[:16]}… es v1 — se necesita la "
-                f"passphrase para descifrarlo."
+                f"Artifact {artifact_hash[:16]}… is v1 — the passphrase is "
+                f"required to decrypt it."
             )
         return passphrase
 
@@ -955,7 +907,7 @@ class LegacyAgent:
         original is borre of the filesystem.
         """
         if not self._unlocked:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
         key = self._ensure_store_key(passphrase)
         artifact_hash = self._store.put(path, key)
         self._audit.append(
@@ -971,14 +923,14 @@ class LegacyAgent:
         *, actor: str,
     ) -> Path:
         """
-        Recupera a artifact archivado and it writes in `dest`.
-        Envelopes v2 is descifran with the store key of the vault (no require
-        passphrase  funciona also tras a recovery by custodios);
-        envelopes v1 heredados require the passphrase.
-        the integridad is verifica dos veces (tag GCM + SHA-256 vs id).
+        Restore an archived artifact to `dest`.
+        V2 envelopes decrypt with the vault store key and do not require a
+        passphrase, including after custodian recovery; legacy v1 envelopes
+        require the passphrase. Integrity is checked twice (GCM tag and
+        SHA-256 against the artifact id).
         """
         if not self._unlocked:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
         secret = self._artifact_secret(artifact_hash, passphrase)
         out = self._store.restore(artifact_hash, dest, secret)
         self._audit.append(
@@ -992,27 +944,24 @@ class LegacyAgent:
     def verify_artifact(
         self, artifact_hash: str, passphrase: Optional[str] = None
     ) -> bool:
-        """True if the artifact archivado decrypts e integro (v1 o v2)."""
+        """Return True if the archived artifact decrypts and is intact (v1 or v2)."""
         try:
             secret = self._artifact_secret(artifact_hash, passphrase)
         except (VaultAuthError, VaultCorruptError, VaultNotFoundError):
             return False
         return self._store.verify(artifact_hash, secret)
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Owner activity and reporting.
 
     def heartbeat(self, passphrase: str) -> None:
         """
-        Registra actividad of the owner.
-        updates InactivityCondition.last_activity_iso if exists.
+        Record owner activity.
+        Update InactivityCondition.last_activity_iso when present.
 
-        FIX: the refresco of actividad is persiste with seal() before of return.
-        without esto, tocar the condition only mutaba the index in memory and the new
-        last_activity_iso is perdia a less that the caller llamara a lock() after
-         a heartbeat perdido can disparar InactivityCondition and conceder
-        acceso a the heirs mientras the owner sigue activo.
+        FIX: the activity refresh is persisted with seal() before returning.
+        Without this, touching the condition would mutate only the in-memory
+        index, and a lost heartbeat could trigger InactivityCondition and grant
+        heirs access while the owner remains active.
         """
         self.open_owner(passphrase)
         assert self._index is not None
@@ -1026,14 +975,12 @@ class LegacyAgent:
             self._vault.seal(self._index.to_dict(), passphrase)
         self._audit.append("HEARTBEAT", actor=self._owner_id)
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Summary and heir guide.
 
     def summary(self, actor: str) -> Dict[str, Any]:
-        """summary of the legado: categorias, conteos, artifacts prioritarios."""
+        """Return a legacy summary: categories, counts, and active heirs."""
         if not self._unlocked or self._index is None:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
 
         by_category: Dict[str, List[Dict]] = {}
         for a in self._index.artifacts:
@@ -1059,11 +1006,11 @@ class LegacyAgent:
 
     def heir_guide(self, actor: str) -> str:
         """
-        generates the Guia of the heir (markdown determinista) and registra
-        the evento in the audit trail.
+        Generate the heir guide (deterministic markdown) and record the event
+        in the audit trail.
         """
         if not self._unlocked or self._index is None:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
         from legacy.agent.heir_guide import build_guide
 
         guide = build_guide(
@@ -1079,46 +1026,40 @@ class LegacyAgent:
         )
         return guide
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Integrity checks.
 
     def verify_audit(self, hmac_key: Optional[bytes] = None) -> Dict[str, Any]:
-        """Verifica the integridad of the audit trail."""
+        """Verify audit-trail integrity."""
         result = self._audit.verify(hmac_key=hmac_key)
         return result.to_dict()
 
     def verify_memory_integrity(self) -> Dict[str, Any]:
         """
-        FIX R3-001: cross-referencia the index encrypted of the vault with
-        the content real of memory.db.
+        FIX R3-001: cross-reference the vault's encrypted index with the
+        actual content in memory.db.
 
-        the vault protege the index (artifact_id, memory_id, content_hash).
-        memory.db no is encrypted  a attacker with acceso to the filesystem can
-        modificar su content without break the audit trail.
-        Este metodo detects esa divergencia comparando the content_hash of the index
-        (dentro of the vault decrypted) with the content_hash almacenado in memory.db.
+        The vault protects artifact_id, memory_id, and content_hash. An attacker
+        with filesystem access could modify unencrypted memory.db without
+        breaking the audit trail. This method detects divergence by comparing
+        the decrypted index hashes with the content stored in memory.db.
 
-        returns: {ok, checked, errors: [str]}
+        Return {ok, checked, errors: [str]}.
         """
         if not self._unlocked or self._index is None:
-            raise RuntimeError("Vault cerrado.")
+            raise RuntimeError("Vault is locked.")
 
         errors: List[str] = []
         checked = 0
         db_path = self._data_dir / "memory.db"
 
         if not db_path.exists():
-            errors.append("memory.db no found")
+            errors.append("memory.db not found")
         else:
-            # Implementation note.
-            # Implementation note.
+            # Compare every indexed memory entry with the database.
             with closing(sqlite3.connect(db_path)) as conn:
                 conn.row_factory = sqlite3.Row
 
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
+                # Track indexed IDs to detect ghost memories.
                 vault_memory_ids: set = set()
                 for artifact in self._index.artifacts:
                     memory_id = artifact.get("memory_id", "")
@@ -1133,13 +1074,10 @@ class LegacyAgent:
                     ).fetchone()
                     if row is None:
                         errors.append(
-                            f"memory_id={memory_id[:8]}… ausente de memory.db"
+                            f"memory_id={memory_id[:8]}… missing from memory.db"
                         )
                     else:
-                        # Implementation note.
-                        # Implementation note.
-                        # Implementation note.
-                        # Implementation note.
+                        # Decrypt the stored content using the active database key.
                         content = self._memory._dec(
                             memory_id, "content", row["content"]
                         )
@@ -1149,11 +1087,7 @@ class LegacyAgent:
                                 f"unreadable (missing db_key or tampered data)"
                             )
                         else:
-                            # Implementation note.
-                            # Implementation note.
-                            # Implementation note.
-                            # Implementation note.
-                            # Implementation note.
+                            # Compare its actual hash with the sealed index hash.
                             actual_hash = hashlib.sha256(
                                 content.encode("utf-8")
                             ).hexdigest()
@@ -1164,13 +1098,7 @@ class LegacyAgent:
                                     f"actual={actual_hash[:16]}"
                                 )
 
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
+                # Find non-forgotten database rows absent from the vault index.
                 orphan_rows = conn.execute(
                     "SELECT memory_id FROM memories WHERE state != 'FORGOTTEN'"
                 ).fetchall()
@@ -1178,8 +1106,8 @@ class LegacyAgent:
                     mid = row["memory_id"]
                     if mid not in vault_memory_ids:
                         errors.append(
-                            f"memory_id={mid[:8]}… en memory.db sin artifact "
-                            f"en vault index (ghost memory)"
+                            f"memory_id={mid[:8]}… in memory.db without an artifact "
+                            f"in the vault index (ghost memory)"
                         )
 
         ok = len(errors) == 0

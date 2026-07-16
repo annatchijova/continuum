@@ -116,9 +116,9 @@ def test_keyword_not_matched_midword():
 
 def test_keyword_still_matches_plural_prefix():
     clf = DocumentClassifier()
-    # 'suscripción' debe seguir matcheando 'suscripciones' (sufijo permitido)
+    # The singular keyword must still match its plural prefix.
     r = clf.classify(
-        "Tenés varias suscripciones activas con renovación automática mensual "
-        "en distintas plataformas de streaming."
+        "Several active subscriptions renew automatically each month "
+        "across different streaming platforms."
     )
     assert r.scores[DocCategory.SUBSCRIPTION] > 0

@@ -82,7 +82,7 @@ def test_r3_001_integrity_detects_missing_memory(tmp_path):
 
     result = agent.verify_memory_integrity()
     assert result["ok"] is False
-    assert any("ausente" in e for e in result["errors"])
+    assert any("missing" in e for e in result["errors"])
 
 
 def test_r3_001_integrity_logs_audit_event(tmp_path):
@@ -233,7 +233,7 @@ def test_global_inv_no_double_vault_created(tmp_path):
     agent = LegacyAgent(tmp_path / "data", "owner", hmac_key=b"key123456789012!")
     agent.initialize("pass")
 
-    with pytest.raises(ValueError, match="the vault already exists"):
+    with pytest.raises(ValueError, match="The vault already exists"):
         agent.initialize("pass")
 
     events = agent._audit.events(event_type="VAULT_CREATED")
