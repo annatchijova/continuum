@@ -52,7 +52,7 @@ def mf(tmp_path):
 @pytest.fixture
 def doc(tmp_path):
     """Create a sample artifact file."""
-    p = tmp_path / "testamento.txt"
+    p = tmp_path / "will.txt"
     p.write_text("This is my will. I leave my assets to my children.")
     return p
 
@@ -417,7 +417,7 @@ class TestOperationOrder:
                 "SELECT state FROM memories WHERE memory_id=?", (mid,)
             ).fetchone()[0]
         assert state == "FORGOTTEN"
-        assert not any(r.memory_id == mid for r in mf.recall("hipoteca"))
+        assert not any(r.memory_id == mid for r in mf.recall("mortgage"))
 
     def test_ord_001_forget_then_reinforce_is_reinforced(self, mf):
         """Forget then reinforce produces REINFORCED (reinforce wins)."""

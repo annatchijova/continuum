@@ -65,7 +65,7 @@ def test_canonicalize_nfc_parity_unit():
 def test_verify_legacy_accepts_valid_nfd_chain(tmp_path):
     """A legitimate chain containing an NFD filename (for example, a macOS
     filename) must not be reported as tampered by the standalone verifier."""
-    nfd_artifact = _nfd("café_contrato.pdf")
+    nfd_artifact = _nfd("café_contract.pdf")
     assert nfd_artifact != unicodedata.normalize("NFC", nfd_artifact)
 
     at = AuditTrail(db_path=tmp_path / "audit.db", hmac_key=b"")
