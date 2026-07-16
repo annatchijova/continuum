@@ -159,6 +159,16 @@ def test_dashboard_exposes_whether_audit_used_hmac():
         assert "hmac_checked" in dashboard
 
 
+def test_ui_distinguishes_hmac_hash_only_and_failed_integrity():
+    script = (Path(__file__).parents[1] / "continuum_web/static/app.js").read_text()
+    styles = (Path(__file__).parents[1] / "continuum_web/static/styles.css").read_text()
+
+    assert "integrity-strong" in script
+    assert "integrity-limited" in script
+    assert "integrity-failed" in script
+    assert ".integrity-dot.integrity-limited" in styles
+
+
 def test_capture_preserves_safe_supported_text_file_extension():
     with TemporaryDirectory() as directory:
         studio = Studio(Path(directory) / "legacy")
