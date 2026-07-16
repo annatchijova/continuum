@@ -1,10 +1,10 @@
 """
 tests/test_security_r3.py
 ==========================
-Regresiones for the hallazgos of the audit R3.
+Regressions for the findings from audit R3.
 
-Cubre propiedades emergentes: composition, invariantes globales,
-recovery, concurrencia, degradacion acumulativa, consistencia criptografica.
+Covers emergent properties: composition, global invariants, recovery,
+concurrency, cumulative degradation, and cryptographic consistency.
 """
 import sqlite3
 import time
@@ -13,19 +13,15 @@ from pathlib import Path
 import pytest
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-
 def test_r3_001_integrity_passes_on_clean_db(tmp_path):
-    """verify_memory_integrity() returns ok=True when memory.db no fue altered."""
+    """verify_memory_integrity() returns ok=True when memory.db is unchanged."""
     from legacy.agent.memory_agent import LegacyAgent
 
     agent = LegacyAgent(tmp_path / "data", "owner", hmac_key=b"key123456789012!")
     agent.initialize("pass")
 
-    doc = tmp_path / "testamento.txt"
-    doc.write_text("Este is mi testamento.")
+    doc = tmp_path / "will.txt"
+    doc.write_text("This is my will.")
     agent.ingest(doc)
 
     result = agent.verify_memory_integrity()
@@ -36,8 +32,8 @@ def test_r3_001_integrity_passes_on_clean_db(tmp_path):
 
 def test_r3_001_integrity_detects_content_tamper(tmp_path):
     """
-    verify_memory_integrity() detects when the content of memory.db
-    fue modificado directamente with a editor SQLite.
+    verify_memory_integrity() detects content modified directly in memory.db
+    with a SQLite editor.
     """
     from legacy.agent.memory_agent import LegacyAgent
 
@@ -45,10 +41,9 @@ def test_r3_001_integrity_detects_content_tamper(tmp_path):
     agent.initialize("pass")
 
     doc = tmp_path / "contract.txt"
-    doc.write_text("contract of compraventa firmado the 2025-01-01.")
+    doc.write_text("Purchase contract signed on 2025-01-01.")
     record = agent.ingest(doc)
 
-    # Implementation note.
     db_path = tmp_path / "data" / "memory.db"
     with sqlite3.connect(db_path) as conn:
         conn.execute(
@@ -64,18 +59,17 @@ def test_r3_001_integrity_detects_content_tamper(tmp_path):
 
 def test_r3_001_integrity_detects_missing_memory(tmp_path):
     """
-    verify_memory_integrity() detects when a row of memory.db fue eliminada.
+    verify_memory_integrity() detects when a memory.db row is deleted.
     """
     from legacy.agent.memory_agent import LegacyAgent
 
     agent = LegacyAgent(tmp_path / "data", "owner", hmac_key=b"key123456789012!")
     agent.initialize("pass")
 
-    doc = tmp_path / "poliza.txt"
-    doc.write_text("Poliza of seguro of vida numero 12345.")
+    doc = tmp_path / "life_insurance.txt"
+    doc.write_text("Life insurance policy number 12345.")
     record = agent.ingest(doc)
 
-    # Implementation note.
     db_path = tmp_path / "data" / "memory.db"
     with sqlite3.connect(db_path) as conn:
         conn.execute("DELETE FROM memories WHERE memory_id=?", (record.memory_id,))
@@ -86,7 +80,7 @@ def test_r3_001_integrity_detects_missing_memory(tmp_path):
 
 
 def test_r3_001_integrity_logs_audit_event(tmp_path):
-    """verify_memory_integrity() siempre registra a evento INTEGRITY_CHECK."""
+    """verify_memory_integrity() always records an INTEGRITY_CHECK event."""
     from legacy.agent.memory_agent import LegacyAgent
 
     agent = LegacyAgent(tmp_path / "data", "owner", hmac_key=b"key123456789012!")
@@ -99,7 +93,7 @@ def test_r3_001_integrity_logs_audit_event(tmp_path):
 
 
 def test_r3_001_integrity_multiple_artifacts(tmp_path):
-    """with N artifacts, verify_memory_integrity() verifica all."""
+    """With N artifacts, verify_memory_integrity() checks all of them."""
     from legacy.agent.memory_agent import LegacyAgent
 
     agent = LegacyAgent(tmp_path / "data", "owner", hmac_key=b"key123456789012!")
@@ -107,7 +101,7 @@ def test_r3_001_integrity_multiple_artifacts(tmp_path):
 
     for i in range(5):
         doc = tmp_path / f"doc_{i}.txt"
-        doc.write_text(f"Documento número {i} del legado.")
+        doc.write_text(f"Document {i}: legacy content.")
         agent.ingest(doc)
 
     result = agent.verify_memory_integrity()
@@ -115,23 +109,18 @@ def test_r3_001_integrity_multiple_artifacts(tmp_path):
     assert result["checked"] == 5
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-
 def test_r3_002_vocab_capped_during_session(tmp_path):
     """
-    after of ingerir muchos documents with vocabulario diverso,
-    _vocab no supera _MAX_VOCAB_SIZE.
+    After ingesting many documents with diverse vocabulary,
+    _vocab does not exceed _MAX_VOCAB_SIZE.
     """
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
-    # Implementation note.
     for i in range(200):
         mf.store(
-            f"palabraúnica{i} términoespecífico{i} conceptonovedad{i} definiciónnueva{i}",
+            f"unique_word{i} specific_term{i} novel_concept{i} new_definition{i}",
             DocCategory.PERSONAL,
         )
 
@@ -139,14 +128,14 @@ def test_r3_002_vocab_capped_during_session(tmp_path):
 
 
 def test_r3_002_embedding_length_bounded(tmp_path):
-    """the embedding almacenado in DB nunca supera _MAX_VOCAB_SIZE floats."""
+    """The embedding stored in the database never exceeds _MAX_VOCAB_SIZE floats."""
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
     import json
 
     mf = MemoryField(tmp_path / "mem.db")
     for i in range(100):
-        mf.store(f"término{i} palabra{i} concepto{i}", DocCategory.PROFESSIONAL)
+        mf.store(f"term{i} word{i} concept{i}", DocCategory.PROFESSIONAL)
 
     with sqlite3.connect(tmp_path / "mem.db") as conn:
         rows = conn.execute("SELECT embedding_json FROM memories").fetchall()
@@ -156,20 +145,15 @@ def test_r3_002_embedding_length_bounded(tmp_path):
         assert len(emb) <= mf._MAX_VOCAB_SIZE
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-
 def test_r3_003_score_does_not_overflow(tmp_path):
-    """after of muchos reinforce(), score no llega a float('inf')."""
+    """After many reinforce() calls, score does not reach float('inf')."""
     import math
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
-    mid = mf.store("document important testamento", DocCategory.LEGAL)
+    mid = mf.store("important legal document", DocCategory.LEGAL)
 
-    # Implementation note.
     for _ in range(600):
         mf.reinforce(mid)
 
@@ -178,13 +162,13 @@ def test_r3_003_score_does_not_overflow(tmp_path):
             "SELECT score FROM memories WHERE memory_id=?", (mid,)
         ).fetchone()[0]
 
-    assert not math.isinf(score), "score llego a float('inf')"
-    assert not math.isnan(score), "score llego a NaN"
+    assert not math.isinf(score), "score reached float('inf')"
+    assert not math.isnan(score), "score reached NaN"
     assert score <= mf._MAX_SCORE + 1e-6
 
 
 def test_r3_003_score_cap_value():
-    """_MAX_SCORE is definido and is a float positivo finito."""
+    """_MAX_SCORE is defined as a positive finite float."""
     from legacy.memory.field import MemoryField
     import math
     assert hasattr(MemoryField, "_MAX_SCORE")
@@ -192,41 +176,30 @@ def test_r3_003_score_cap_value():
     assert MemoryField._MAX_SCORE > 0
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-
 def test_c001_low_confidence_wrong_category_missed_by_filtered_recall(tmp_path):
     """
-    a document clasificado with categoria incorrect (LOW confidence) no aparece
-    in recall(category=categoria_correcta).
-    Esto is comportamiento esperado  documentado as C-001.
+    A document classified into the wrong category (LOW confidence) does not
+    appear in recall(category=correct_category). This is expected behavior,
+    documented as C-001.
     """
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
-    # Implementation note.
-    mid = mf.store("hipoteca escritura property inmueble banco", DocCategory.LEGAL)
+    mid = mf.store("mortgage deed property real estate bank", DocCategory.LEGAL)
 
-    # Implementation note.
-    results = mf.recall("hipoteca property", category=DocCategory.REAL_ESTATE)
+    results = mf.recall("mortgage property", category=DocCategory.REAL_ESTATE)
     assert not any(r.memory_id == mid for r in results),\
-        "the document filtrado by categoria incorrect no should aparecer"
+        "the document in the wrong category should not appear in filtered recall"
 
-    # Implementation note.
-    results_all = mf.recall("hipoteca property")
+    results_all = mf.recall("mortgage property")
     assert any(r.memory_id == mid for r in results_all)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-
 def test_global_inv_no_double_vault_created(tmp_path):
     """
-    initialize() fallara if the vault already exists  imposible tener dos VAULT_CREATED
-    for the same vault.
+    initialize() fails when the vault already exists; a vault cannot have
+    two VAULT_CREATED events.
     """
     from legacy.agent.memory_agent import LegacyAgent
 
@@ -241,13 +214,13 @@ def test_global_inv_no_double_vault_created(tmp_path):
 
 
 def test_global_inv_synaptic_weights_never_exceed_max(tmp_path):
-    """STDP_MAX_WEIGHT is the techo estricto of all the pesos sinapticos."""
+    """STDP_MAX_WEIGHT is the strict ceiling for all synaptic weights."""
     from legacy.memory.field import MemoryField, STDP_MAX_WEIGHT
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
     for i in range(30):
-        mf.store(f"legal contrato herencia {i}", DocCategory.LEGAL)
+        mf.store(f"legal contract inheritance {i}", DocCategory.LEGAL)
 
     with sqlite3.connect(tmp_path / "mem.db") as conn:
         max_w = conn.execute("SELECT MAX(weight) FROM synaptic_links").fetchone()[0]
@@ -255,58 +228,49 @@ def test_global_inv_synaptic_weights_never_exceed_max(tmp_path):
         assert max_w <= STDP_MAX_WEIGHT + 1e-9
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-
 def test_degradation_recall_stable_after_many_stores(tmp_path):
     """
-    recall() sigue devolviendo resultados relevantes after of ingerir
-    muchos documents of distintas categorias.
+    Recall continues returning relevant results after ingesting many documents
+    from different categories.
     """
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
     target_mid = mf.store(
-        "testamento last voluntad bienes herencia legado",
+        "will last wishes assets inheritance legacy",
         DocCategory.LEGAL,
     )
 
-    # Implementation note.
     for i in range(200):
         cat = [DocCategory.MEDICAL, DocCategory.FINANCIAL, DocCategory.PERSONAL][i % 3]
-        mf.store(f"documento {i} contenido genérico sin relación con el testamento", cat)
+        mf.store(f"document {i} generic content unrelated to the will", cat)
 
-    results = mf.recall("testamento herencia legado")
+    results = mf.recall("will inheritance legacy")
     assert any(r.memory_id == target_mid for r in results[:5]),\
-        "the memory of the testamento fue desplazada by ruido after of 200 stores"
+        "the will memory was displaced by noise after 200 stores"
 
 
 def test_degradation_forget_then_recall_excludes_forgotten(tmp_path):
     """
-    a memory marcada as FORGOTTEN nunca aparece in recall(),
-    incluso with alto score historico.
+    A memory marked FORGOTTEN never appears in recall(), even with a high
+    historical score.
     """
     from legacy.memory.field import MemoryField
     from legacy.ingestion.doc_types import DocCategory
 
     mf = MemoryField(tmp_path / "mem.db")
-    mid = mf.store("hipoteca banco escritura property", DocCategory.REAL_ESTATE)
-    mf.reinforce(mid)  # elevamos the score
+    mid = mf.store("mortgage bank deed property", DocCategory.REAL_ESTATE)
+    mf.reinforce(mid)  # Raise the score.
     mf.forget(mid)
 
-    results = mf.recall("hipoteca banco property")
+    results = mf.recall("mortgage bank property")
     assert not any(r.memory_id == mid for r in results),\
-        "memory FORGOTTEN aparecio in recall()"
+        "FORGOTTEN memory appeared in recall()"
 
-
-# Implementation note.
-# Implementation note.
-# Implementation note.
 
 def test_recovery_vault_tmp_cleaned_on_success(tmp_path):
-    """after of seal() exitoso no remains file .tmp."""
+    """After a successful seal(), no .tmp file remains."""
     from legacy.vault.locker import Vault
 
     v = Vault(tmp_path / "x.vault")
@@ -316,45 +280,35 @@ def test_recovery_vault_tmp_cleaned_on_success(tmp_path):
 
 def test_recovery_vault_original_survives_if_tmp_fails(tmp_path, monkeypatch):
     """
-    if write_text over .tmp falla, the vault original no is corrompe.
-    the escritura atomica (tmp  rename) garantiza that the original permanece
-    intacto until that the escritura complete is in .tmp.
+    If writing the .tmp file fails, the original vault is not corrupted.
+    Atomic writing (tmp -> rename) guarantees that the original remains
+    intact until writing to .tmp completes.
     """
     from legacy.vault.locker import Vault
 
     v = Vault(tmp_path / "x.vault")
     v.seal({"original": True}, "pass")
 
-    # Implementation note.
     assert v.open("pass")["original"] is True
 
-    # Implementation note.
     def always_fail(self, data, *args, **kwargs):
-        raise OSError("Disco lleno simulado")
+        raise OSError("Simulated disk full")
 
     monkeypatch.setattr(Path, "write_text", always_fail)
 
-    with pytest.raises(OSError, match="Disco lleno"):
+    with pytest.raises(OSError, match="Simulated disk full"):
         v.seal({"tampered": True}, "pass")
 
-    # Implementation note.
-    # Implementation note.
     monkeypatch.undo()
 
-    # Implementation note.
     recovered = v.open("pass")
     assert recovered["original"] is True
     assert "tampered" not in recovered
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-
 def test_crypto_consistency_vault_hash_chain_still_valid_after_r3_changes(tmp_path):
     """
-    after of all the correcciones of R3, verify_audit() sigue devolviendo
-    a chain valid.
+    After all R3 corrections, verify_audit() still returns a valid chain.
     """
     from legacy.agent.memory_agent import LegacyAgent
 
@@ -362,18 +316,17 @@ def test_crypto_consistency_vault_hash_chain_still_valid_after_r3_changes(tmp_pa
     agent.initialize("pass")
 
     doc = tmp_path / "doc.txt"
-    doc.write_text("content of prueba for chain of audit.")
+    doc.write_text("sample content for the audit chain.")
     agent.ingest(doc)
 
     mid = agent._memory.stats()
     agent.reinforce_memory(
-        list(agent._memory.recall("content prueba"))[0].memory_id
+        list(agent._memory.recall("sample content"))[0].memory_id
     )
     agent.verify_memory_integrity()
 
     audit_result = agent.verify_audit(hmac_key=b"key123456789012!")
     assert audit_result["valid"] is True
-    # Implementation note.
     assert audit_result["broken_links"] == []
     assert audit_result["tampered_content"] == []
     assert audit_result["seq_discontinuities"] == []
