@@ -170,7 +170,7 @@ class Consolidator:
                 )
                 self._merge_pair(winner_id, loser_id)
                 merged += 1
-                # Implementation note.
+                # Keep the combined token set for later comparisons.
                 seen[best_idx] = (winner_id, orig_tokens | tokens, orig_state)
             else:
                 seen.append((mid, tokens, state))

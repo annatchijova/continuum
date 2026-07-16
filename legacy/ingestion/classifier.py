@@ -34,7 +34,7 @@ from legacy.ingestion.doc_types import (
     DocCategory,
 )
 
-# Implementation note.
+# Cache compiled keyword patterns.
 _KW_PATTERN_CACHE: Dict[str, re.Pattern] = {}
 
 

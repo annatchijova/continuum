@@ -188,7 +188,7 @@ CATEGORY_PROFILES: Dict[DocCategory, CategoryProfile] = {
     ),
 }
 
-# Implementation note.
+# File-extension hints.
 EXTENSION_HINTS: Dict[str, DocCategory] = {
     ".jpg": DocCategory.MEDIA,
     ".jpeg": DocCategory.MEDIA,

@@ -67,9 +67,7 @@ PUZZLE_VERSION = "1"
 _AAD = b"legacy-timelock-v1"
 _NONCE_LEN = 12
 _MIN_MODULUS_BITS = 1024
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Puzzle limits.
 _MAX_SQUARINGS = 10 ** 13
 
 
@@ -82,9 +80,7 @@ def _require_crypto() -> None:
         raise RuntimeError("The 'cryptography' package is required for the time-lock.")
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Prime-generation helpers.
 
 _SMALL_PRIMES = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37)
 
@@ -130,9 +126,7 @@ def _solution_to_key(solution: int, modulus_bits: int) -> bytes:
     return hashlib.sha256(_int_to_bytes(solution, modulus_bits)).digest()
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Puzzle creation.
 
 def create_puzzle(
     secret: bytes,
@@ -168,7 +162,7 @@ def create_puzzle(
     phi = (p - 1) * (q - 1)
 
     a = 2 + secrets.randbelow(n - 3)
-    # Implementation note.
+    # Compute the RSA-style repeated-squaring exponent.
     e = pow(2, squarings, phi)
     solution = pow(a, e, n)
     key = _solution_to_key(solution, modulus_bits)
@@ -176,7 +170,7 @@ def create_puzzle(
     nonce = secrets.token_bytes(_NONCE_LEN)
     ciphertext = AESGCM(key).encrypt(nonce, secret, _AAD)
 
-    # Implementation note.
+    # Return only public puzzle parameters; discard the factorization.
     return {
         "version": PUZZLE_VERSION,
         "modulus_bits": modulus_bits,
@@ -233,9 +227,7 @@ def solve_puzzle(
         ) from exc
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Calibration.
 
 def calibrate(*, seconds: float = 1.0, modulus_bits: int = 2048) -> int:
     """

@@ -525,9 +525,7 @@ def _validate_envelope(raw: Dict[str, Any]) -> None:
             raise VaultCorruptError("Envelope v2 without keyslots.")
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Vault error hierarchy.
 
 class VaultError(Exception):
     pass

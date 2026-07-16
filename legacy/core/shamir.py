@@ -49,9 +49,7 @@ class ShamirError(ValueError):
     """Invalid parameters, inconsistent shares, or failed reconstruction."""
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# GF(2^8) lookup-table construction.
 
 def _build_tables() -> tuple[List[int], List[int]]:
     exp = [0] * 510

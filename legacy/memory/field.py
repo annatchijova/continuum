@@ -401,15 +401,12 @@ class MemoryField:
             if q_vec and emb and len(q_vec) == len(emb):
                 cos = _cosine(q_vec, emb)
             elif q_vec:
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
-                # Implementation note.
+                # Fall back to a freshly computed vector when the stored
+                # embedding is unavailable or has an incompatible shape.
                 fresh_emb = _tfidf_vector(_tokenize(content), self._vocab)
                 cos = _cosine(q_vec, fresh_emb)
             elif q_tokens:
-                # Implementation note.
+                # Score lexical token overlap when no query vector exists.
                 mem_tokens = set(_tokenize(content))
                 overlap = len(set(q_tokens) & mem_tokens)
                 cos = overlap / (len(q_tokens) + 1)
