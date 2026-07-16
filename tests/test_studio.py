@@ -80,6 +80,17 @@ def test_static_deployment_previews_are_bilingual_and_make_no_api_requests():
     assert "fetch(" not in briefing + briefing_script
 
 
+def test_owner_stress_test_protocol_keeps_personal_data_out_of_git_and_models():
+    root = Path(__file__).parents[1]
+    protocol = (root / "STRESS_TEST.md").read_text()
+    ignore = (root / ".gitignore").read_text()
+
+    assert "unset OPENAI_API_KEY" in protocol
+    assert "Never import" in protocol
+    assert "Do not paste raw personal content" in protocol
+    assert "continuum-anna-stress/" in ignore
+
+
 def test_demo_workspace_is_searchable_and_auditable():
     with TemporaryDirectory() as directory, patch("continuum_web.narrator.enabled", return_value=False):
         root = Path(directory) / "workspace"
