@@ -25,9 +25,7 @@ def store(tmp_path):
     return ArtifactStore(tmp_path / "artifacts")
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# V2 artifact-store behavior.
 
 def test_v2_roundtrip(store):
     data = b"content encrypted with key cruda \x00\xff"
@@ -83,24 +81,22 @@ def test_v2_envelope_cannot_be_renamed(store):
         store.get(hb, KEY)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Multiple artifacts remain independently restorable.
 
 def test_convert_to_key(store):
-    h1 = store.put_bytes(b"document uno", PASS)
-    h2 = store.put_bytes(b"document dos", PASS)
+    h1 = store.put_bytes(b"document one", PASS)
+    h2 = store.put_bytes(b"document two", PASS)
 
     stats = store.convert_to_key(PASS, KEY)
     assert stats == {"converted": 2, "skipped": 0}
-    for h, expected in [(h1, b"document uno"), (h2, b"document dos")]:
+    for h, expected in [(h1, b"document one"), (h2, b"document two")]:
         assert store.envelope_version(h) == "2"
         assert store.get(h, KEY) == expected
         assert not store.verify(h, PASS)        # the passphrase already no decrypts
 
 
 def test_convert_is_rerunnable(store):
-    store.put_bytes(b"uno", PASS)
+    store.put_bytes(b"one", PASS)
     store.put_bytes(b"dos", KEY)                # already v2
     stats = store.convert_to_key(PASS, KEY)
     assert stats == {"converted": 1, "skipped": 1}
@@ -115,9 +111,7 @@ def test_convert_aborts_on_wrong_passphrase(store):
     assert store.envelope_version(h) == "1"     # nada cambio
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# V2 migration and key handling.
 
 def test_rekey_skips_v2_envelopes(store):
     h1 = store.put_bytes(b"old v1", PASS)
