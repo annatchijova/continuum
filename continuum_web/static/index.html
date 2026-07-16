@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Continuum Studio</title>
+    <meta name="description" content="A protected, navigable memory for the people who matter." />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="orb orb-one"></div><div class="orb orb-two"></div>
+    <main class="shell">
+      <nav>
+        <a class="brand" href="#top"><span class="brand-mark">C</span><span>continuum</span></a>
+        <div class="nav-status"><span class="pulse"></span><span id="navStatus">Protected local workspace</span></div>
+        <button class="quiet" id="lockButton" hidden>Lock workspace</button>
+      </nav>
+
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <p class="eyebrow">YOUR LEGACY, MADE NAVIGABLE</p>
+          <h1>What matters should <em>not</em> become a mystery.</h1>
+          <p class="lede">Continuum turns a lifetime of documents, knowledge and memories into a private guide for the people you trust.</p>
+          <div class="hero-actions">
+            <button class="primary" id="demoButton">Explore a safe demo <span>→</span></button>
+            <button class="secondary" id="setupButton">Create my workspace</button>
+          </div>
+          <p class="microcopy">Local-first · encrypted vault · verifiable history</p>
+        </div>
+        <aside class="promise-card">
+          <div class="promise-top"><span>Continuity signal</span><span class="live">● Secure</span></div>
+          <div class="signal-graphic"><span></span><span></span><span></span><span></span><span></span></div>
+          <p>Clarity for tomorrow begins with a single protected memory today.</p>
+          <div class="promise-rule"></div>
+          <div class="promise-stats"><div><strong>0</strong><span>unverified changes</span></div><div><strong>∞</strong><span>meaningful connections</span></div></div>
+        </aside>
+      </section>
+
+      <section class="onboarding panel" id="onboarding">
+        <div><p class="eyebrow">START SECURELY</p><h2>Open a private workspace.</h2><p>Your passphrase stays in this browser session and is never saved by the interface.</p></div>
+        <form id="workspaceForm">
+          <label>Owner name / heir ID<input id="owner" value="Alex Morgan" autocomplete="name" required /></label>
+          <label>Passphrase<input id="passphrase" type="password" minlength="10" placeholder="At least 10 characters" required /></label>
+          <label class="heir-key">Heir key <small>only if the owner gave you one</small><input id="heirKey" type="password" placeholder="Optional recovery key" /></label>
+          <div class="form-actions"><button class="primary" type="submit">Create protected workspace <span>→</span></button><button class="text-button" type="button" id="unlockButton">Open as owner</button><button class="text-button" type="button" id="heirButton">Open as heir</button></div>
+          <p class="form-note" id="formNote"></p>
+        </form>
+      </section>
+
+      <section class="studio" id="studio" hidden>
+        <header class="studio-heading"><div><p class="eyebrow">CONTINUUM STUDIO</p><h2>Welcome back, <span id="ownerName">Alex</span>.</h2><p id="subheading">Your private memory is clear, connected and ready when it matters.</p></div><div class="heading-actions"><button class="guide-button" id="guideButton">Open heir guide</button><button class="guide-button" id="verifyButton">Verify integrity</button><div class="integrity"><span class="integrity-dot"></span><div><small>INTEGRITY</small><strong id="integrityText">verified</strong></div></div></div></header>
+
+        <div class="metrics">
+          <article><span>Memories protected</span><strong id="memoryCount">0</strong><small>across your private vault</small></article>
+          <article><span>Life areas mapped</span><strong id="categoryCount">0</strong><small>organized deterministically</small></article>
+          <article><span>Verified moments</span><strong id="auditCount">0</strong><small>in an append-only history</small></article>
+        </div>
+
+        <div class="workspace-grid">
+          <section class="ask-card"><div class="section-kicker"><span class="spark">✦</span><span>ASK CONTINUUM</span><span class="deterministic">deterministic retrieval</span></div><h3>Find the thread in the story.</h3><p>Ask about a document, a person, or the next thing your family may need.</p><form id="askForm"><input id="question" placeholder="Where is the apartment deed?" autocomplete="off" /><button class="primary" aria-label="Ask Continuum">→</button></form><label class="consent"><input id="narrationConsent" type="checkbox" /> <span>Also send the selected excerpts to OpenAI for an empathetic narration.</span></label><div id="answer" class="answer empty">Your answers will show their sources, so people can see exactly what Continuum found.</div></section>
+          <section class="map-card"><div class="section-kicker"><span>YOUR MAP</span><span id="mapLabel">No memories yet</span></div><div class="category-list" id="categoryList"></div><p class="map-foot">Classification is deterministic. AI may explain what it finds, but it never decides access or changes your record.</p></section>
+        </div>
+
+        <section class="capture-card" id="captureCard"><div><p class="eyebrow">CAPTURE A MEMORY</p><h3>Save the context, not just the file.</h3><p>A sentence, a detail, or the reason something matters now gives your future guide more to work with.</p></div><form id="captureForm"><label>Title<input id="memoryTitle" placeholder="The blue folder" required /></label><label>What should your people know?<textarea id="memoryBody" placeholder="The original house deed is in the blue archival folder..." required></textarea></label><label>Import a local text file <small>.txt, .md, .csv, or .json; its text stays local</small><input id="memoryFile" type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json" /></label><label>Tags <small>optional, comma-separated</small><input id="memoryTags" placeholder="home, urgent" /></label><button class="primary" type="submit">Protect this memory <span>→</span></button><p class="capture-note" id="captureNote"></p></form></section>
+        <section class="guide-card" id="guideCard" hidden><div class="section-kicker"><span>CORE-GENERATED HEIR GUIDE</span><button class="text-button" id="closeGuide" type="button">Close</button></div><pre id="guideContent"></pre></section>
+
+        <section class="principles"><article><span>01</span><h3>Human before automation</h3><p>Continuum makes things easier to understand; it does not make legal, medical, or access decisions.</p></article><article><span>02</span><h3>Proof, not promises</h3><p>Every meaningful action is sealed into a tamper-evident audit history.</p></article><article><span>03</span><h3>Private by architecture</h3><p>Your encrypted vault is the source of truth. The product never treats an AI response as authority.</p></article></section>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

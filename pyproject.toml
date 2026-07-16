@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 legacy = "legacy.cli:main"
+continuum = "continuum_web.server:main"
 
 [project.optional-dependencies]
 memory = [
@@ -23,6 +24,9 @@ dev = [
     "pytest>=8.0",
     "pytest-cov",
 ]
+agents = [
+    "openai-agents",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -30,4 +34,7 @@ python_files = ["test_*.py"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["legacy*"]
+include = ["legacy*", "continuum_web*"]
+
+[tool.setuptools.package-data]
+continuum_web = ["static/*"]
