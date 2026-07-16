@@ -1,24 +1,24 @@
 """
 legacy/core/hash_chain.py
 ==========================
-Hash chain tamper-evident for Digital Legacy.
+Tamper-evident hash chain for Digital Legacy.
 
-design dual hash/HMAC (identico a vigia-repo v2 + janus):
-  entry_hash = SHA-256( canonical( payload  {seq, prev_hash} ) )
-  entry_hmac = HMAC-SHA256( key, entry_hash )   [opcional]
+Dual hash/HMAC design (matching vigia-repo v2 + janus):
+  entry_hash = SHA-256(canonical(payload + {seq, prev_hash}))
+  entry_hmac = HMAC-SHA256(key, entry_hash)   [optional]
 
-  - entry_hash without a key: verificacion independiente by heirs
-    without acceso a the key  cumple the requisito of terceros.
-  - entry_hmac with key: detects to the attacker interno that recomputa
-    toda the chain (SHA-256 puro is recomputable, HMAC no).
+  - entry_hash without a key: independent verification by heirs
+    without access to the key, satisfying the third-party requirement.
+  - entry_hmac with key: detects an internal attacker who recomputes
+    the entire chain (plain SHA-256 can be recomputed; HMAC cannot).
 
-verify_chain acumula all the errores  the auditor ve the mapa
-complete of the dano, no only the primer link invalid.
+verify_chain accumulates every error so the auditor sees the complete
+damage map, not only the first invalid link.
 
-module puro: without I/O, without DB, without state.
-Variables of entorno:
-  LEGACY_HMAC_KEY       hex string ( 32 bytes recomendado)
-  LEGACY_HMAC_KEY_FILE  ruta a bytes crudos
+Pure module: no I/O, database, or state.
+Environment variables:
+  LEGACY_HMAC_KEY       hex string (32 bytes recommended)
+  LEGACY_HMAC_KEY_FILE  path to raw key bytes
 """
 from __future__ import annotations
 
@@ -40,12 +40,10 @@ _HMAC_KEY_ENV = "LEGACY_HMAC_KEY"
 _HMAC_KEY_FILE_ENV = "LEGACY_HMAC_KEY_FILE"
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Canonical hashing primitives.
 
 def canonical_hash(payload: Dict[str, Any]) -> str:
-    """SHA-256 of the payload in forma canonica v1."""
+    """Return the SHA-256 hash of the payload in canonical v1 form."""
     canonical = json.dumps(
         _canonicalize(payload), sort_keys=True, ensure_ascii=True,
     )
@@ -53,7 +51,7 @@ def canonical_hash(payload: Dict[str, Any]) -> str:
 
 
 def compute_entry_hash(seq: int, prev_hash: str, payload: Dict[str, Any]) -> str:
-    """Hash of a link: payload complete + seq + prev_hash."""
+    """Return a link hash over the complete payload, sequence, and predecessor."""
     return canonical_hash({**payload, "seq": seq, "prev_hash": prev_hash})
 
 
@@ -64,10 +62,10 @@ def compute_entry_hmac(key: bytes, entry_hash: str) -> str:
 
 def resolve_hmac_key() -> Optional[bytes]:
     """
-    Resuelve the key HMAC of the entorno.
-    returns None if no hay key  modo hash-only, documentado, no error.
-    NO generates key efimera: chain firmada with key irrecuperable is
-    indistinguible of a manipulada.
+    Resolve the HMAC key from the environment.
+    Return None for documented hash-only mode; this is not an error.
+    Never generate an ephemeral key: a chain signed with an unrecoverable
+    key is indistinguishable from a tampered chain.
     """
     key_hex = os.getenv(_HMAC_KEY_ENV, "").strip()
     if key_hex:
@@ -75,14 +73,14 @@ def resolve_hmac_key() -> Optional[bytes]:
             key = bytes.fromhex(key_hex)
             if len(key) < 32:
                 print(
-                    f"[LEGACY][hash_chain] WARNING: {_HMAC_KEY_ENV} tiene "
-                    f"{len(key)} bytes — mínimo recomendado 32.",
+                    f"[LEGACY][hash_chain] WARNING: {_HMAC_KEY_ENV} has "
+                    f"{len(key)} bytes — 32 recommended minimum.",
                     file=sys.stderr, flush=True,
                 )
             return key
         except ValueError:
             print(
-                f"[LEGACY][hash_chain] WARNING: {_HMAC_KEY_ENV} no es hex válido.",
+                f"[LEGACY][hash_chain] WARNING: {_HMAC_KEY_ENV} is not valid hex.",
                 file=sys.stderr, flush=True,
             )
 
@@ -95,21 +93,19 @@ def resolve_hmac_key() -> Optional[bytes]:
                 if len(key) >= 32:
                     return key
                 print(
-                    f"[LEGACY][hash_chain] WARNING: {key_file} solo tiene "
-                    f"{len(key)} bytes — mínimo 32. Ignorada.",
+                    f"[LEGACY][hash_chain] WARNING: {key_file} has only "
+                    f"{len(key)} bytes — 32 minimum. Ignored.",
                     file=sys.stderr, flush=True,
                 )
         except OSError as exc:
             print(
-                f"[LEGACY][hash_chain] WARNING: no se pudo leer {key_file}: {exc}",
+                f"[LEGACY][hash_chain] WARNING: could not read {key_file}: {exc}",
                 file=sys.stderr, flush=True,
             )
     return None
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Chain data structures.
 
 @dataclass(frozen=True)
 class ChainLink:
@@ -123,8 +119,8 @@ class ChainLink:
 @dataclass
 class ChainVerification:
     """
-    result of verificacion with acumulacion complete of errores.
-    valid=True only if all the categorias are vacias.
+    Verification result with complete error accumulation.
+    valid=True only when every error category is empty.
     """
     valid: bool
     length: int
@@ -154,9 +150,7 @@ class ChainVerification:
         }
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Chain construction.
 
 def build_link(
     seq: int,
@@ -164,7 +158,7 @@ def build_link(
     payload: Dict[str, Any],
     hmac_key: Optional[bytes] = None,
 ) -> ChainLink:
-    """Construye the link siguiente (puro  the caller persiste)."""
+    """Build the next link; persistence belongs to the caller."""
     entry_hash = compute_entry_hash(seq, prev_hash, payload)
     entry_hmac = compute_entry_hmac(hmac_key, entry_hash) if hmac_key else None
     return ChainLink(
@@ -173,9 +167,7 @@ def build_link(
     )
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Chain verification.
 
 def verify_chain(
     links: Sequence[ChainLink],
@@ -184,8 +176,8 @@ def verify_chain(
     hmac_key: Optional[bytes] = None,
 ) -> ChainVerification:
     """
-    Verifica the chain complete (ordenada by seq ascendente).
-    Acumula all the errores  no is detiene in the first.
+    Verify the complete chain (ordered by ascending sequence number).
+    Accumulate every error instead of stopping at the first one.
     """
     result = ChainVerification(
         valid=True, length=len(links), hmac_checked=hmac_key is not None,
@@ -203,7 +195,7 @@ def verify_chain(
             result.seq_discontinuities.append({
                 "expected_seq": expected_seq,
                 "found_seq": link.seq,
-                "note": f"eslabón borrado o insertado entre {expected_seq} y {link.seq}",
+                "note": f"link deleted or inserted between {expected_seq} and {link.seq}",
             })
             _flag(link.seq)
             expected_seq = link.seq
@@ -213,7 +205,7 @@ def verify_chain(
                 "seq": link.seq,
                 "stored_prev": link.prev_hash[:16] + "...",
                 "expected_prev": expected_prev[:16] + "...",
-                "note": "prev_hash no matches with the entry_hash of the link previous",
+                "note": "prev_hash does not match the previous link's entry_hash",
             })
             _flag(link.seq)
 
@@ -223,7 +215,7 @@ def verify_chain(
                 "seq": link.seq,
                 "stored": link.entry_hash[:16] + "...",
                 "recomputed": recomputed[:16] + "...",
-                "note": "content modificado after of the sellado",
+                "note": "content modified after sealing",
             })
             _flag(link.seq)
 
@@ -231,7 +223,7 @@ def verify_chain(
             if not link.entry_hmac:
                 result.hmac_failures.append({
                     "seq": link.seq,
-                    "note": "entry_hmac ausente  link escrito without a key",
+                    "note": "entry_hmac missing — link was written without a key",
                 })
                 _flag(link.seq)
             elif not _hmac.compare_digest(
@@ -240,7 +232,7 @@ def verify_chain(
             ):
                 result.hmac_failures.append({
                     "seq": link.seq,
-                    "note": "chain recomputada without the key  intento of manipulacion",
+                    "note": "chain recomputed without the key — tampering attempt",
                 })
                 _flag(link.seq)
 

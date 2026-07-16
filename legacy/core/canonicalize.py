@@ -1,21 +1,21 @@
 """
 legacy/core/canonicalize.py
 ============================
-Serializacion canonica determinista for SHA-256.
+Deterministic canonical serialization for SHA-256.
 
-Adaptado of vigia-repo/vigia/core/canonicalize.py (esquema v1).
-module standalone  without dependencias externas ni imports of este paquete.
-the same input siempre produce the same hash, in any plataforma.
+Adapted from vigia-repo/vigia/core/canonicalize.py (schema v1).
+Standalone module with no external dependencies or imports from this package.
+The same input always produces the same hash on every platform.
 
-Reglas (esquema v1):
-  bool   "true" / "false"    (before of int  bool is subclase of int)
+Rules (schema v1):
+  bool   "true" / "false"    (before int: bool is a subclass of int)
   int    "N:int"
-  float  "N.NNNNNNNN" (8 decimales); "nan" / "inf" / "-inf"
-  str    without cambios
+  float  "N.NNNNNNNN" (8 decimal places); "nan" / "inf" / "-inf"
+  str    unchanged
   None   "null"
-  dict   keys ordenadas, valores recursivos
-  list/tuple  elementos recursivos
-  otros  str()  fallback, no rompe the hash
+  dict   sorted keys, recursively canonicalized values
+  list/tuple  recursively canonicalized elements
+  other  str() fallback; never breaks the hash
 """
 from __future__ import annotations
 
@@ -39,8 +39,8 @@ def _canonicalize(obj: Any) -> Any:
             return "-inf"
         return f"{obj + 0.0:.8f}"   # +0.0 normaliza -0.0
     if isinstance(obj, str):
-        # Implementation note.
-        # Implementation note.
+        # NFC normalization makes canonically equivalent Unicode strings match.
+        # This is required for cross-platform filename and text consistency.
         return unicodedata.normalize("NFC", obj)
     if obj is None:
         return "null"

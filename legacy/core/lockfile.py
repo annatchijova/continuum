@@ -1,21 +1,21 @@
 """
 legacy/core/lockfile.py
 ========================
-Lock of instancia unica by data_dir  mitiga KL-007.
+Single-instance lock per data_dir — mitigates KL-007.
 
-KL-007: dos instancias of LegacyAgent over the same vault pierden data
-in silencio (the segundo seal() pisa to the first). Este module provee a
-lock file cooperativo for that the puntos of entry (CLI, daemons) puedan
-garantizar exclusion mutua without depender of fcntl (that does not exist in Windows).
+KL-007: two LegacyAgent instances using the same vault can silently lose data
+(the second seal() overwrites the first). This module provides a cooperative
+lock file so entry points (CLI, daemons) can guarantee mutual exclusion
+without depending on fcntl, which is unavailable on Windows.
 
-Mecanismo:
-  - Adquisicion atomica via os.open(O_CREAT | O_EXCL)  the filesystem
-    garantiza that only a proceso crea the file.
-  - the lock file contiene JSON {pid, hostname, acquired_at} for diagnosis.
-  - Deteccion of locks stale: if the PID of the holder already does not exist in este
-    host, the lock is considera orphan (crash without release) and is roba.
-    the verificacion of vida only is concluyente in the same hostname;
-    for a lock of another host is asume vivo (no is roba).
+Mechanism:
+  - Atomic acquisition via os.open(O_CREAT | O_EXCL): the filesystem guarantees
+    that only one process creates the file.
+  - The lock file contains JSON {pid, hostname, acquired_at} for diagnostics.
+  - Stale-lock detection: if the holder PID no longer exists on this host,
+    the lock is considered orphaned (a crash without release) and reclaimed.
+    Liveness is conclusive only on the same hostname; a lock from another host
+    is assumed alive and is not reclaimed.
 
 Uso:
     from legacy.core.lockfile import AgentLock, LockHeldError
@@ -23,9 +23,9 @@ Uso:
     with AgentLock(data_dir):
         ...operar over the vault...
 
-the lock is COOPERATIVO: protege a quienes it usan between si. code that
-abra the vault without pasar by the lock no is detenido  igual that any
-flock/lockfile of the industria.
+The lock is COOPERATIVE: it protects callers that agree to use it. Code that
+opens the vault without acquiring this lock is not stopped, just like any
+other advisory flock or lock file.
 """
 from __future__ import annotations
 
@@ -40,21 +40,21 @@ LOCK_FILENAME = "agent.lock"
 
 
 class LockHeldError(RuntimeError):
-    """the lock is in poder of another proceso vivo."""
+    """The lock is held by another live process."""
 
     def __init__(self, holder: Dict[str, Any], lock_path: Path) -> None:
         self.holder = holder
         self.lock_path = lock_path
         super().__init__(
-            f"El data_dir ya está en uso por pid={holder.get('pid')} "
-            f"host={holder.get('hostname')} desde {holder.get('acquired_at')} "
-            f"(lock: {lock_path}). Si ese proceso murió sin liberar, "
-            f"borrá el lock manualmente."
+            f"data_dir is already in use by pid={holder.get('pid')} "
+            f"host={holder.get('hostname')} since {holder.get('acquired_at')} "
+            f"(lock: {lock_path}). If that process died without releasing it, "
+            f"remove the lock manually."
         )
 
 
 def _pid_alive(pid: int) -> bool:
-    """True if exists a proceso with ese PID in este host."""
+    """Return True if a process with that PID exists on this host."""
     if pid <= 0:
         return False
     try:
@@ -63,19 +63,19 @@ def _pid_alive(pid: int) -> bool:
     except ProcessLookupError:
         return False
     except PermissionError:
-        # Implementation note.
+        # Lack of permission means the process exists but cannot be inspected.
         return True
     except OSError:
-        # Implementation note.
-        # Implementation note.
+        # Treat other OS errors conservatively as a live process.
+        # This prevents accidentally stealing an active lock.
         return True
 
 
 class AgentLock:
     """
-    Lock cooperativo of instancia unica over a data_dir.
+    Cooperative single-instance lock for a data_dir.
 
-    data_dir : directory of data of the agente (is crea if does not exist).
+    data_dir : agent data directory (created if it does not exist).
     """
 
     def __init__(self, data_dir: Path) -> None:
@@ -86,14 +86,12 @@ class AgentLock:
     def lock_path(self) -> Path:
         return self._lock_path
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Acquisition and release.
 
     def acquire(self) -> "AgentLock":
         """
-        Adquiere the lock. if hay a lock stale (holder muerto in este
-        host), it roba once. Lanza LockHeldError if the holder vive.
+        Acquire the lock. If a stale lock exists (its holder died on this
+        host), reclaim it once. Raise LockHeldError if the holder is alive.
         """
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
         for _ in range(2):          # intento normal + intento tras robo
@@ -104,7 +102,7 @@ class AgentLock:
             except FileExistsError:
                 holder = self._read_holder()
                 if self._is_stale(holder):
-                    # Implementation note.
+                    # Reclaim the stale lock and retry.
                     try:
                         self._lock_path.unlink()
                     except FileNotFoundError:
@@ -122,11 +120,11 @@ class AgentLock:
             self._acquired = True
             return self
 
-        # Implementation note.
+        # A concurrent process won the retry race.
         raise LockHeldError(self._read_holder() or {}, self._lock_path)
 
     def release(self) -> None:
-        """releases the lock if este objeto it adquirio (idempotente)."""
+        """Release the lock if this object acquired it (idempotent)."""
         if not self._acquired:
             return
         try:
@@ -135,9 +133,7 @@ class AgentLock:
             pass
         self._acquired = False
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Holder inspection and stale-lock detection.
 
     def _read_holder(self) -> Optional[Dict[str, Any]]:
         try:
@@ -147,9 +143,9 @@ class AgentLock:
 
     def _is_stale(self, holder: Optional[Dict[str, Any]]) -> bool:
         """
-        a lock is stale if su content is unreadable (crash a mitad of
-        escritura) o if the PID of the holder already no vive in ESTE host.
-        Locks of otros hosts nunca is consideran stale.
+        A lock is stale if its content is unreadable (a crash during writing)
+        or if the holder PID no longer exists on THIS host. Locks from other
+        hosts are never considered stale.
         """
         if holder is None:
             return True
@@ -160,9 +156,7 @@ class AgentLock:
             return True
         return not _pid_alive(pid)
 
-    # Implementation note.
-    # Implementation note.
-    # Implementation note.
+    # Context-manager protocol.
 
     def __enter__(self) -> "AgentLock":
         return self.acquire()
