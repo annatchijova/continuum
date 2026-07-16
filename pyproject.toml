@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "digital-legacy"
+version = "0.7.0"
+description = "Memory Agent for digital legacy — deterministic, auditable, encrypted."
+requires-python = ">=3.11"
+dependencies = [
+    "cryptography>=42.0",
+]
+
+[project.scripts]
+legacy = "legacy.cli:main"
+
+[project.optional-dependencies]
+memory = [
+    "numpy>=1.26",
+    "scipy>=1.12",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["legacy*"]
