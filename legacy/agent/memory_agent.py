@@ -902,9 +902,9 @@ class LegacyAgent:
         encrypts and guarda the file crudo in the ArtifactStore (envelope v2,
         with the store key of the vault). returns the content_hash (id).
 
-        A diferencia of ingest()  that only indexa rutas and hashes  esto
-        preserves the bytes: a testamento archivado sobrevive aunque the
-        original is borre of the filesystem.
+        Unlike ingest(), which only indexes paths and hashes, this preserves
+        the bytes: an archived will survives even if the original is deleted
+        from the filesystem.
         """
         if not self._unlocked:
             raise RuntimeError("Vault is locked.")

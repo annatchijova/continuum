@@ -28,7 +28,7 @@ PASS = "pw"
 def agent(tmp_path):
     a = LegacyAgent(tmp_path / "data", "anna")
     a.initialize(PASS)
-    src = tmp_path / "testamento.txt"
+    src = tmp_path / "will.txt"
     src.write_text("will and last wishes before the notary", encoding="utf-8")
     a.ingest(src)
     a.archive_artifact(src, PASS)
@@ -40,8 +40,8 @@ def test_bundle_structure_and_manifest(agent, tmp_path):
     dest = tmp_path / "bundle"
     manifest = export_bundle(agent, dest, actor="anna", passphrase=PASS)
 
-    assert (dest / "GUIA_DEL_HEREDERO.md").is_file()
-    assert (dest / "LEEME.txt").is_file()
+    assert (dest / "HEIR_GUIDE.md").is_file()
+    assert (dest / "README.txt").is_file()
     assert (dest / "audit.db").is_file()
     assert (dest / "MANIFEST.json").is_file()
     assert manifest["verify_script_included"] is True
@@ -78,9 +78,9 @@ def test_bundle_artifacts_are_directly_restorable(agent, tmp_path):
 def test_manifest_detects_post_export_tampering(agent, tmp_path):
     dest = tmp_path / "bundle"
     export_bundle(agent, dest, actor="anna", passphrase=PASS)
-    (dest / "GUIA_DEL_HEREDERO.md").write_text("forged guide", encoding="utf-8")
+    (dest / "HEIR_GUIDE.md").write_text("forged guide", encoding="utf-8")
     problems = check_manifest(dest)
-    assert any("GUIA_DEL_HEREDERO.md" in p for p in problems)
+    assert any("HEIR_GUIDE.md" in p for p in problems)
 
 
 def test_export_aborts_on_corrupt_artifact(agent, tmp_path):

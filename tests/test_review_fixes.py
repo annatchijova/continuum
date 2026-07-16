@@ -3,10 +3,10 @@ tests/test_review_fixes.py
 ==========================
 Regression tests for code-review findings (2026-07-07).
 
-Cubre cuatro correcciones:
+Four corrections are covered:
   RV-001  pyproject.toml build-backend is valid.
-  RV-002  verify_legacy.py (standalone) y legacy/core/canonicalize.py
-          produces the SAME canonical hash (NFC parity).
+  RV-002  verify_legacy.py (standalone) and legacy/core/canonicalize.py
+          produce the SAME canonical hash (NFC parity).
   RV-003  heartbeat() persists the activity refresh without explicit lock().
   RV-004  keyword matching does not trigger false positives inside words.
 
@@ -57,7 +57,7 @@ def test_pyproject_build_backend_is_valid():
 def test_canonicalize_nfc_parity_unit():
     nfd = _nfd("café résumé")
     assert nfd != unicodedata.normalize("NFC", nfd)
-    # ambas implementaciones deben normalizar a NFC igual
+    # Both implementations must normalize to the same NFC value.
     assert VL._canonicalize(nfd) == lib_canonicalize(nfd)
     assert VL._canonicalize(nfd) == unicodedata.normalize("NFC", nfd)
 
