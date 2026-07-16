@@ -1,38 +1,37 @@
 """
 legacy/core/dbcrypto.py
 ========================
-encrypted of field (application-level) for columns SQLite  closes the
-parte of recall of KL-001.
+Application-level field encryption for SQLite columns — closes the
+database-encryption part of KL-001.
 
-the problema: `memory.db` is SQLite WAL with lecturas/escrituras frecuentes.
-encrypt the file entero requires SQLCipher (comercial) o break the
-garantias of atomicidad of WAL. the alternativa correcta and of dependencia
-cero is encrypt the VALORES sensibles before of escribirlos: the database sigue
-siendo SQLite normal (guarda text opaco), WAL intacto, and the content in
-rest deja of estar in plaintext.
+The problem: `memory.db` is a SQLite WAL database with frequent reads and
+writes. Encrypting the entire file requires SQLCipher (commercial) or breaks
+WAL atomicity guarantees. The correct zero-dependency alternative is to encrypt
+sensitive VALUES before writing them: the database remains normal SQLite
+(storing opaque text), WAL remains intact, and content at rest is no longer
+plaintext.
 
-Primitiva: AES-256-GCM with nonce aleatorio by valor. the key (db key of
-32 bytes) vive dentro of the vault encrypted, igual that the store key  same
-frontera of confianza: quien opens the vault can decrypt the database.
+Primitive: AES-256-GCM with a random nonce per value. The key (a 32-byte
+database key) lives inside the encrypted vault, like the store key. They share
+the same trust boundary: anyone who opens the vault can decrypt the database.
 
-Formato of the token (str, apto for columns TEXT):
+Token format (str, suitable for TEXT columns):
 
     gcmf1:<base64url(nonce(12) || ciphertext || tag(16))>
 
-AAD (associated data): each valor is liga a su CONTEXTO  tipicamente
-`"<row_id>:<column>"`. Asi a attacker with acceso of escritura a the DB no
-can mover a valor encrypted of a row/column a another (ni of a registro
-a another) without invalidar the tag. the AAD NO is encrypts; is responsabilidad of the
-caller pasar a contexto estable and unico.
+AAD (associated data): each value is bound to its CONTEXT, typically
+`"<row_id>:<column>"`. Thus an attacker with write access to the database
+cannot move an encrypted value to another row or column without invalidating
+the tag. AAD is NOT encrypted; the caller must provide a stable, unique context.
 
-Coexistencia plaintext / ciphertext (migracion transparente):
-  - `is_encrypted(v)` distingue a token of a valor in plaintext by the prefijo.
-  - `decrypt_field` returns the valores in plaintext tal cual (a database
-    pre-encrypted sigue siendo legible mientras is migra).
-  - `maybe_decrypt` is the helper of lectura: decrypts if does missing, if no
-    returns the valor as is.
+Plaintext/ciphertext coexistence (transparent migration):
+  - `is_encrypted(v)` identifies an encrypted token by its prefix.
+  - `decrypt_field` returns plaintext values unchanged (a pre-migration
+    database remains readable while it is being migrated).
+  - `maybe_decrypt` is the read helper: decrypt if needed, otherwise return
+    the value unchanged.
 
-module puro salvo `secrets` for the nonces.
+Pure module except for `secrets`, used for nonces.
 """
 from __future__ import annotations
 
@@ -55,37 +54,25 @@ _TAG_LEN = 16
 
 
 class FieldCryptoError(ValueError):
-    """decrypted fallido: key incorrect, AAD equivocado o dato tampered."""
+    """Decryption failed: incorrect key, incorrect AAD, or tampered data."""
 
 
 def is_encrypted(value: Optional[str]) -> bool:
-    """True if `value` is a token encrypted by este module."""
+    """Return True if `value` is a token encrypted by this module."""
     return isinstance(value, str) and value.startswith(FIELD_PREFIX)
 
 
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
-# Implementation note.
+# Plaintext collision escaping.
 
 def escape_plaintext(value: str) -> str:
-    """Forma of storage of a valor in plaintext (no ambigua with ciphertext)."""
+    """Return a plaintext storage form unambiguous with ciphertext."""
     if value.startswith(FIELD_PREFIX) or value.startswith(PLAIN_ESCAPE):
         return PLAIN_ESCAPE + value
     return value
 
 
 def unescape_plaintext(stored: str) -> str:
-    """Inversa of escape_plaintext: recupera the valor logico in plaintext."""
+    """Reverse escape_plaintext and recover the logical plaintext value."""
     if stored.startswith(PLAIN_ESCAPE):
         return stored[len(PLAIN_ESCAPE):]
     return stored
@@ -93,33 +80,33 @@ def unescape_plaintext(stored: str) -> str:
 
 class FieldCipher:
     """
-    encrypts/decrypts valores of column with a db key of 32 bytes.
+    Encrypt and decrypt column values with a 32-byte database key.
 
-    key : 32 bytes. is keeps only in memory mientras the vault is
-          abierto; nunca is persiste fuera of the vault encrypted.
+    key : 32 bytes. Kept only in memory while the vault is open; never
+          persisted outside the encrypted vault.
     """
 
     def __init__(self, key: bytes) -> None:
         if not _CRYPTO_AVAILABLE:
             raise RuntimeError(
-                "the paquete 'cryptography' is required for the encrypted of field."
+                "The 'cryptography' package is required for field encryption."
             )
         if len(key) != _KEY_LEN:
-            raise ValueError(f"La db key debe tener {_KEY_LEN} bytes, tiene {len(key)}.")
+            raise ValueError(f"The database key must be {_KEY_LEN} bytes, got {len(key)}.")
         self._aes = AESGCM(key)
 
-    # Implementation note.
+    # Encryption and decryption.
 
     def encrypt_field(self, plaintext: str, aad: str) -> str:
         """
-        encrypts `plaintext` ligandolo a `aad` (contexto row:column).
+        Encrypt `plaintext`, binding it to `aad` (row:column context).
 
-        SIEMPRE encrypts su entry as text in plaintext  NO intenta detect
-        if `plaintext` "already parece encrypted" (FIX R5-001): esa heuristica
-        misfirea over content in plaintext that starts with the prefijo of
-        ciphertext and it dejaba without encrypt. the idempotencia in migraciones is
-        responsabilidad of the caller, that skips the columns already encrypted with
-        is_encrypted() over the forma ALMACENADA (no over the valor logico).
+        ALWAYS encrypt the input as plaintext. Do NOT attempt to detect whether
+        `plaintext` "already looks encrypted" (FIX R5-001): that heuristic
+        misclassifies plaintext beginning with the ciphertext prefix and leaves
+        it unencrypted. Migration idempotence is the caller's responsibility;
+        callers skip columns already encrypted by checking `is_encrypted()` on
+        the STORED form, not the logical value.
         """
         nonce = secrets.token_bytes(_NONCE_LEN)
         ct = self._aes.encrypt(
@@ -129,9 +116,9 @@ class FieldCipher:
 
     def decrypt_field(self, token: str, aad: str) -> str:
         """
-        decrypts a token. if `token` is in plaintext (without prefijo) it
-        returns tal cual  allows leer a database a medio migrar.
-        Lanza FieldCryptoError if the token is of the prefijo pero no decrypts.
+        Decrypt a token. If `token` is plaintext (without the prefix), return it
+        unchanged so a partially migrated database remains readable.
+        Raise FieldCryptoError if a prefixed token cannot be decrypted.
         """
         if not is_encrypted(token):
             return token
@@ -139,16 +126,16 @@ class FieldCipher:
             blob = base64.urlsafe_b64decode(token[len(FIELD_PREFIX):])
             nonce, ct = blob[:_NONCE_LEN], blob[_NONCE_LEN:]
             if len(nonce) != _NONCE_LEN or len(ct) < _TAG_LEN:
-                raise ValueError("token truncado")
+                raise ValueError("truncated token")
             return self._aes.decrypt(nonce, ct, aad.encode("utf-8")).decode("utf-8")
         except Exception as exc:
             raise FieldCryptoError(
-                f"No se pudo descifrar el campo (clave/AAD incorrecto o dato "
-                f"manipulado): {exc}"
+                f"Could not decrypt field (incorrect key/AAD or tampered "
+                f"data): {exc}"
             ) from exc
 
     def maybe_decrypt(self, value: Optional[str], aad: str) -> Optional[str]:
-        """decrypts if is a token; if no, returns the valor without tocar. NoneNone."""
+        """Decrypt tokens; otherwise return the value unchanged. Preserve None."""
         if value is None:
             return None
         return self.decrypt_field(value, aad)
