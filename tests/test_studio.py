@@ -183,3 +183,10 @@ def test_answer_renderer_treats_narration_and_sources_as_text():
     assert "function renderAnswer" in script
     assert "narration.append(label, document.createElement" in script
     assert "answer.innerHTML" not in script
+
+
+def test_http_500_response_does_not_include_exception_text():
+    source = (Path(__file__).parents[1] / "continuum_web/server.py").read_text()
+
+    assert '"The protected operation could not complete."' in source
+    assert 'could not complete: {exc}' not in source

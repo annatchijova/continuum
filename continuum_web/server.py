@@ -261,8 +261,11 @@ class Handler(SimpleHTTPRequestHandler):
             self._json(action(self._read_json() if self.command == "POST" else {}))
         except (ValueError, json.JSONDecodeError) as exc:
             self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-        except Exception as exc:  # The response avoids exposing paths or vault details.
-            self._json({"error": f"The protected operation could not complete: {exc}"}, HTTPStatus.INTERNAL_SERVER_ERROR)
+        except Exception:
+            self._json(
+                {"error": "The protected operation could not complete."},
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
 
     def _json(self, body: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
         raw = json.dumps(body, ensure_ascii=False).encode("utf-8")
