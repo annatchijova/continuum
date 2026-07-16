@@ -20,6 +20,19 @@ def test_ui_exposes_narration_as_an_unchecked_explicit_consent():
     assert 'allow_narration: $("narrationConsent").checked' in script
 
 
+def test_ui_makes_cryptographic_product_guarantees_visible():
+    root = Path(__file__).parents[1] / "continuum_web/static"
+    html = (root / "index.html").read_text()
+    styles = (root / "styles.css").read_text()
+    script = (root / "app.js").read_text()
+
+    assert "AES-256-GCM at rest" in html
+    assert "Append-only audit history" in html
+    assert "--blue:#616fb0" in styles
+    assert "pointermove" in script
+    assert "prefers-reduced-motion" in script
+
+
 def test_demo_workspace_is_searchable_and_auditable():
     with TemporaryDirectory() as directory, patch("continuum_web.narrator.enabled", return_value=False):
         root = Path(directory) / "workspace"

@@ -1,5 +1,18 @@
 const $ = (id) => document.getElementById(id);
 const categories = { legal: "Legal", financial: "Financial", medical: "Health", identity: "Identity", real_estate: "Home", subscription: "Accounts", professional: "Knowledge", media: "Media", personal: "Personal", credential: "Access", unknown: "Unsorted" };
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+if (!reducedMotion) {
+  const vaultVisual = document.querySelector(".vault-visual");
+  if (vaultVisual) vaultVisual.style.transition = "transform 180ms ease-out";
+  vaultVisual?.addEventListener("pointermove", (event) => {
+    const bounds = vaultVisual.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - .5;
+    const y = (event.clientY - bounds.top) / bounds.height - .5;
+    vaultVisual.style.transform = `perspective(900px) rotateX(${-y * 3}deg) rotateY(${x * 4}deg)`;
+  });
+  vaultVisual?.addEventListener("pointerleave", () => { vaultVisual.style.transform = ""; });
+}
 
 async function api(path, payload = {}) {
   const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
