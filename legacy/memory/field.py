@@ -138,10 +138,27 @@ def _tokenize(text: str) -> List[str]:
     return re.findall(r"[a-zaeiounua-z0-9]+", text.lower())
 
 
-def _tfidf_vector(tokens: List[str], vocab: List[str]) -> List[float]:
+def _idf_weights(vocab: List[str], doc_freq: Counter, doc_count: int) -> Dict[str, float]:
+    """
+    Smoothed inverse document frequency: log((N+1)/(df+1)) + 1.
+    Always positive, so a term present in every document still contributes
+    (weight 1.0) instead of collapsing to zero.
+    """
+    n = max(doc_count, 1)
+    return {t: math.log((n + 1) / (doc_freq.get(t, 0) + 1)) + 1.0 for t in vocab}
+
+
+def _tfidf_vector(
+    tokens: List[str], vocab: List[str], idf: Optional[Dict[str, float]] = None
+) -> List[float]:
     count = Counter(tokens)
     total = max(len(tokens), 1)
-    vec = [count.get(w, 0) / total for w in vocab]
+    if idf:
+        vec = [(count.get(w, 0) / total) * idf.get(w, 1.0) for w in vocab]
+    else:
+        # FIX: this branch is plain term frequency, not TF-IDF — kept only for
+        # callers that have no corpus-wide document-frequency stats yet.
+        vec = [count.get(w, 0) / total for w in vocab]
     norm = math.sqrt(sum(v * v for v in vec)) or 1.0
     return [v / norm for v in vec]
 
@@ -177,7 +194,13 @@ class MemoryField:
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
         # Reconstruct the vocabulary lazily from readable content.
-        self._vocab: List[str] = self._load_vocab()
+        self._vocab: List[str]
+        self._doc_freq: Counter
+        self._doc_count: int
+        self._vocab, self._doc_freq, self._doc_count = self._load_vocab()
+        self._idf: Dict[str, float] = _idf_weights(
+            self._vocab, self._doc_freq, self._doc_count
+        )
 
     def set_db_key(self, db_key: Optional[bytes]) -> None:
         """
@@ -187,7 +210,8 @@ class MemoryField:
         opened; the key becomes available afterward.
         """
         self._cipher = FieldCipher(db_key) if db_key else None
-        self._vocab = self._load_vocab()
+        self._vocab, self._doc_freq, self._doc_count = self._load_vocab()
+        self._idf = _idf_weights(self._vocab, self._doc_freq, self._doc_count)
 
     # Bind encrypted values to their memory row and column.
 
@@ -247,26 +271,41 @@ class MemoryField:
 
     # Vocabulary management.
 
-    def _load_vocab(self) -> List[str]:
+    def _load_vocab(self) -> Tuple[List[str], Counter, int]:
         with self._connect() as conn:
             rows = conn.execute("SELECT memory_id, content FROM memories").fetchall()
         all_tokens: Counter = Counter()
+        doc_freq: Counter = Counter()
+        doc_count = 0
         for r in rows:
             content = self._dec(r["memory_id"], "content", r["content"])
             if content is None:
                 continue        # Encrypted row without a key in this session.
-            all_tokens.update(_tokenize(content))
-        # Keep the most frequent terms within the vocabulary cap.
-        return sorted(t for t, _ in all_tokens.most_common(512))
+            tokens = _tokenize(content)
+            all_tokens.update(tokens)
+            doc_freq.update(set(tokens))
+            doc_count += 1
+        # FIX: when the vocabulary must be trimmed to the cap, keep the
+        # terms with the *lowest* document frequency first, not the ones
+        # with the highest raw term frequency. A word that occurs once
+        # across the whole corpus (a name, a codeword, an identifier) is
+        # exactly what makes one memory findable among many, but
+        # `most_common` was discarding it in favor of common words that
+        # appear in almost every document and carry the least discriminative
+        # signal — the opposite of what a search index needs.
+        ranked = sorted(all_tokens, key=lambda t: (doc_freq[t], t))
+        vocab = sorted(ranked[:512])
+        return vocab, doc_freq, doc_count
 
     def _embed(self, text: str) -> List[float]:
         if not self._vocab:
             return []
         tokens = _tokenize(text)
-        return _tfidf_vector(tokens, self._vocab)
+        return _tfidf_vector(tokens, self._vocab, self._idf)
 
     def _rebuild_vocab(self) -> None:
-        self._vocab = self._load_vocab()
+        self._vocab, self._doc_freq, self._doc_count = self._load_vocab()
+        self._idf = _idf_weights(self._vocab, self._doc_freq, self._doc_count)
 
     # Storage.
 
@@ -297,12 +336,17 @@ class MemoryField:
         now = time.time()
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-        # Add new tokens before computing the embedding.
-        self._vocab = list(set(self._vocab) | set(_tokenize(content)))
-        self._vocab.sort()
-        # Keep only the most useful vocabulary terms.
-        if len(self._vocab) > self._MAX_VOCAB_SIZE:
-            self._vocab = self._vocab[: self._MAX_VOCAB_SIZE]
+        # Update corpus-wide document-frequency stats first, then rank the
+        # merged vocabulary the same way _load_vocab does (rarest terms
+        # first) before applying the size cap — keeps a codeword or name
+        # seen only in this document from being displaced by common words.
+        content_tokens = set(_tokenize(content))
+        self._doc_count += 1
+        self._doc_freq.update(content_tokens)
+        merged_terms = set(self._vocab) | content_tokens
+        ranked = sorted(merged_terms, key=lambda t: (self._doc_freq[t], t))
+        self._vocab = sorted(ranked[: self._MAX_VOCAB_SIZE])
+        self._idf = _idf_weights(self._vocab, self._doc_freq, self._doc_count)
         embedding = self._embed(content)
 
         # Persist the memory and its encrypted fields.
@@ -378,7 +422,7 @@ class MemoryField:
         """
         now = time.time()
         q_tokens = _tokenize(query)
-        q_vec = _tfidf_vector(q_tokens, self._vocab) if self._vocab else []
+        q_vec = _tfidf_vector(q_tokens, self._vocab, self._idf) if self._vocab else []
 
         with self._connect() as conn:
             if category:
@@ -398,12 +442,17 @@ class MemoryField:
             if content is None:
                 continue        # Encrypted row without a key in this session.
             emb = json.loads(self._dec(mid, "embedding_json", r["embedding_json"]) or "[]")
-            if q_vec and emb and len(q_vec) == len(emb):
-                cos = _cosine(q_vec, emb)
-            elif q_vec:
-                # Fall back to a freshly computed vector when the stored
-                # embedding is unavailable or has an incompatible shape.
-                fresh_emb = _tfidf_vector(_tokenize(content), self._vocab)
+            if q_vec:
+                # FIX: always recompute against the current vocabulary/IDF
+                # instead of trusting the stored embedding_json. IDF depends
+                # on document-frequency counts for the whole corpus, which
+                # keep changing as memories are added even when the
+                # vocabulary's *length* stops changing (it is capped at
+                # _MAX_VOCAB_SIZE) — a same-length stored vector can still
+                # have been built against stale document frequencies and
+                # silently under- or over-score. Content is already
+                # decrypted above, so recomputing here is cheap.
+                fresh_emb = _tfidf_vector(_tokenize(content), self._vocab, self._idf)
                 cos = _cosine(q_vec, fresh_emb)
             elif q_tokens:
                 # Score lexical token overlap when no query vector exists.
