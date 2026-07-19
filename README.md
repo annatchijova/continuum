@@ -37,20 +37,22 @@ widens who it serves:
 
 ## The problem, stated plainly
 
-When someone dies — or is suddenly hospitalized, or simply can never quite
-remember where they put something important — the people around them (or
-they themselves) inherit two things at once: stress, and a hard drive. Wills,
+When life becomes difficult to navigate — because someone is overwhelmed,
+disorganized, living with ADHD or dementia, suddenly hospitalized, or grieving
+a loss — people need the same thing: a trustworthy map of what matters. Wills,
 insurance policies, medical history, the password to the account that pays
 the mortgage, the one photo that explains a family story no document ever
-recorded — all of it sits scattered across files, folders, and devices, with
-no map and no order. Nobody in crisis, grieving or otherwise, should also
-have to become a forensic investigator of their own life.
+recorded, and the notes that make everyday life manageable can sit scattered
+across files, folders, and devices with no map and no order. Nobody should
+have to become a forensic investigator of their own life just to find their
+way through it.
 
 The easy answer — "just point an AI at all the files and let people ask
 questions" — trades one problem for a worse one. A model that can quietly
 misread a document, invent a detail, or decide on its own who gets access to
-what is not trustworthy with a will, a diagnosis, or a house deed. Grief is
-not the moment to introduce a system that might be confidently wrong.
+what is not trustworthy with a will, a diagnosis, a house deed, or the
+ordinary information someone needs to stay independent. A crisis is not the
+moment to introduce a system that might be confidently wrong.
 
 Continuum's answer is to separate the two jobs. A deterministic, encrypted,
 audited core decides what exists, what it means, and who may see it. An AI —
@@ -336,3 +338,69 @@ Codex session identifier:
 This identifier is included for hackathon attribution and development
 traceability. It is not a credential and does not grant access to the
 repository or its data.
+
+## The human legacy
+
+*Song by [Olga Vasilieva](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925)*
+
+**Verse 1**<br>
+A photograph inside her hands,<br>
+A face she knew, now lost in sands.<br>
+A name that fades, a silent room,<br>
+A memory disappearing too soon.<br>
+A thousand files, a thousand days,<br>
+Lost in forgotten digital haze.<br>
+A life of moments, dreams and tears,<br>
+Waiting through the passing years.
+
+**Pre-Chorus**<br>
+And if the voices start to fade,<br>
+If every path becomes a maze,<br>
+There must be something we can do,<br>
+To keep the stories shining through.
+
+**Chorus**<br>
+We are more than data, more than time,<br>
+More than a file or a broken line.<br>
+Every heartbeat, every trace,<br>
+Every memory has a place.<br>
+When the road becomes unclear,<br>
+When the answers disappear,<br>
+We will build a bridge to see...<br>
+A human legacy.
+
+**Verse 2**<br>
+A restless mind that cannot slow,<br>
+A thousand thoughts that come and go.<br>
+Searching for words, searching for light,<br>
+Trying to find what feels right.<br>
+A silent hand inside a room,<br>
+A voice waiting through the gloom.<br>
+A daughter asking where to start,<br>
+Looking for pieces of a father’s heart.
+
+**Bridge**<br>
+Not a copy, not a machine,<br>
+Not a shadow of what has been.<br>
+But a protected, trusted guide,<br>
+Keeping precious worlds inside.<br>
+Encrypted memories, safely stored,<br>
+Every chapter, every word.<br>
+Audited, protected, clear and true,<br>
+A path for those who follow you.
+
+**Final Chorus**<br>
+We are more than data, more than time,<br>
+More than a file or a broken line.<br>
+Every story, every name,<br>
+Deserves to live beyond the frame.<br>
+When the memories fade away,<br>
+When tomorrow hides today,<br>
+Continuum will help us find...<br>
+The human soul we leave behind.
+
+**Outro**<br>
+A life can change.<br>
+A memory can fade.<br>
+But every story<br>
+can remain.
