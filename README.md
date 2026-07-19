@@ -1,19 +1,47 @@
 # Continuum
 
-*A private, cryptographically verifiable memory for the people you love.*
+*A private, cryptographically verifiable memory — for the people you love,
+and for your own life while you're still living it.*
 
 Licensed under the [Apache License 2.0](LICENSE).
 
 ![Continuum Studio](https://img.shields.io/badge/status-hackathon%20prototype-173e3c)
 
+## Where this comes from
+
+Continuum is built and maintained by Olga Vasilieva. It started as a fork of
+[digital-legacy](https://github.com/annatchijova/digital-legacy), an
+Apache-2.0 project by my daughter, Anna Tchijova: a deterministic, encrypted,
+audited memory system built for one specific moment — the day someone dies
+and the people who loved them inherit a hard drive with no map.
+
+That architecture — a core that decides and seals *before* any model is ever
+consulted — turned out to be useful for a much longer list of moments than
+just the last one. Continuum keeps every one of the original guarantees and
+widens who it serves:
+
+- **Someone hospitalized or suddenly incapacitated**, where a family member
+  needs the same answers an heir would need — today, not after a funeral.
+- **Someone disorganized**, for whom "where did I put that" is a daily tax,
+  not a one-time crisis.
+- **Someone with ADHD** — my own daughter among them — who loses track of
+  documents, passwords, and appointments constantly, and loses real time
+  re-finding things that were never actually lost, just scattered.
+- **Someone who already lost a family member** and is now the one holding
+  the hard drive with no map, trying to make sense of what's left.
+- **Anyone who just wants their own life organized** with the rigor a will
+  deserves, without needing a crisis to justify the effort.
+
 ## The problem, stated plainly
 
-When someone dies, the people who loved them inherit two things at once: grief,
-and a hard drive. Wills, insurance policies, medical history, the password to
-the account that pays the mortgage, the one photo that explains a family
-story no document ever recorded — all of it sits scattered across files,
-folders, and devices, with no map and no order. Nobody grieving should also
-have to become a forensic investigator of their own family's life.
+When someone dies — or is suddenly hospitalized, or simply can never quite
+remember where they put something important — the people around them (or
+they themselves) inherit two things at once: stress, and a hard drive. Wills,
+insurance policies, medical history, the password to the account that pays
+the mortgage, the one photo that explains a family story no document ever
+recorded — all of it sits scattered across files, folders, and devices, with
+no map and no order. Nobody in crisis, grieving or otherwise, should also
+have to become a forensic investigator of their own life.
 
 The easy answer — "just point an AI at all the files and let people ask
 questions" — trades one problem for a worse one. A model that can quietly
