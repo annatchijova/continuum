@@ -10,10 +10,10 @@ Licensed under the [Apache License 2.0](LICENSE).
 ## Where this comes from
 
 Continuum is built and maintained by Olga Vasilieva. It started as a fork of
-[digital-legacy](https://github.com/annatchijova/digital-legacy), an
-Apache-2.0 project by my daughter, Anna Tchijova: a deterministic, encrypted,
-audited memory system built for one specific moment — the day someone dies
-and the people who loved them inherit a hard drive with no map.
+digital-legacy, an Apache-2.0 project by my daughter, Anna Tchijova: a
+deterministic, encrypted, audited memory system built for one specific
+moment — the day someone dies and the people who loved them inherit a hard
+drive with no map. (The link goes here once that repository is public.)
 
 That architecture — a core that decides and seals *before* any model is ever
 consulted — turned out to be useful for a much longer list of moments than
@@ -29,6 +29,9 @@ widens who it serves:
   re-finding things that were never actually lost, just scattered.
 - **Someone who already lost a family member** and is now the one holding
   the hard drive with no map, trying to make sense of what's left.
+- **A student with hundreds of scattered notes** — lecture notes, half-written
+  papers, source citations — who needs to ask "where did I write about X"
+  and get a sourced answer instead of grepping through folders by hand.
 - **Anyone who just wants their own life organized** with the rigor a will
   deserves, without needing a crisis to justify the effort.
 
