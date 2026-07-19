@@ -4,6 +4,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versioning follows
 semantic versioning. This is the translated product history of the prototype;
 security audit reports are intentionally not copied into Continuum.
 
+## [Unreleased]
+
+### Fixed
+
+- Memory field retrieval scored plain term frequency with no inverse-document-
+  frequency weighting, and its vocabulary cap discarded rare, distinctive
+  terms (names, codewords, identifiers) in favor of common ones — the
+  opposite of what a search index needs. `recall()` also trusted a memory's
+  cached embedding whenever its length matched, which stayed true even after
+  IDF made that embedding stale. All three compounded, found and fixed
+  together; see [`RETRIEVAL_FIX_2026-07-19.md`](RETRIEVAL_FIX_2026-07-19.md).
+
 ## [0.7.0] — 2026-07-08
 
 ### Added
