@@ -29,6 +29,26 @@ Then open **http://127.0.0.1:8787** in your browser. Click **Run a safe
 sample** to explore a fictional local vault immediately: no personal folder,
 API key, or account is required.
 
+### Demo mode — no files to import
+
+After opening the Studio, click **Run a safe sample**. Continuum creates an
+isolated `safe-demo` vault with four fictional records: an apartment deed,
+emergency care plan, family archive, and subscription checklist. Then ask:
+
+```text
+Where is the apartment deed?
+```
+
+To demonstrate the read-only heir route, lock the safe demo and open it as an
+heir with any heir ID and this deliberately public demo passphrase:
+
+```text
+continuum-demo
+```
+
+The safe demo is reset on every run and never replaces a real workspace. The
+public Vercel evaluator below is the larger, preloaded 40-record fixture demo.
+
 To use optional NVIDIA narration after the Studio is running, start it from a
 terminal with your own key:
 
