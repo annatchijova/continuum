@@ -1,4 +1,10 @@
-# Continuum
+<p align="center">
+  <img src="visual/logo.png" alt="Continuum logo" width="200">
+</p>
+
+<h1 align="center">Continuum</h1>
+
+<p align="center"><strong>Proof for what matters.</strong></p>
 
 *A private, cryptographically verifiable memory — for the people you love,
 and for your own life while you're still living it.*
@@ -233,10 +239,6 @@ legacy/
 Source: [`visual/continuum_architecture_en.mermaid`](visual/continuum_architecture_en.mermaid).
 An earlier iteration of the diagram is kept for reference in
 [`visual/diagrama/`](visual/diagrama).
-
-### Logo
-
-<img src="visual/logo.png" alt="Continuum logo" width="200">
 
 ### Studio walkthrough
 
