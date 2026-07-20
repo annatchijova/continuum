@@ -11,8 +11,6 @@ and for your own life while you're still living it.*
 
 Licensed under the [Apache License 2.0](LICENSE).
 
-![Continuum Studio](https://img.shields.io/badge/status-hackathon%20prototype-173e3c)
-
 ## Open the real Studio — copy and paste
 
 Requirements: Git and Python 3.11 or newer.
@@ -267,8 +265,8 @@ uses its stateless OpenAI-compatible Chat Completions endpoint directly, with a
 
 ## Architecture
 
-The current prototype package is still named `legacy`; the package rename is a
-later implementation step.
+The current package is still named `legacy`; the package rename is a later
+implementation step.
 
 ```
 legacy/
