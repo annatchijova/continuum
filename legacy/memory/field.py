@@ -85,6 +85,21 @@ STDP_PRUNE_EPS    = 1e-9
 STDP_MAX_WEIGHT   = 2.0
 STDP_MIN_WEIGHT   = 0.0
 
+# Common question words may influence TF-IDF, but cannot establish that a
+# document is evidence for a factual question.
+_QUERY_STOPWORDS = frozenset(
+    {
+        "a", "an", "and", "are", "as", "at", "be", "before", "by", "can",
+        "could", "do", "does", "for", "from", "had", "has", "have", "how",
+        "i", "in", "is", "it", "me", "my", "of", "on", "or", "please",
+        "should", "show", "tell", "that", "the", "this", "to", "was", "we",
+        "what", "when", "where", "which", "who", "why", "with", "would", "you",
+        "your", "about", "all", "any", "find", "get", "give", "need",
+        "de", "del", "el", "en", "es", "la", "las", "lo", "los", "mi", "mis",
+        "para", "por", "que", "quiero", "su", "sus", "un", "una", "y", "yo",
+    }
+)
+
 
 class MemoryState(str, Enum):
     REINFORCED = "REINFORCED"
@@ -136,6 +151,21 @@ def _tokenize(text: str) -> List[str]:
     # Restrict tokens to letters and digits.
     text = unicodedata.normalize("NFC", text)
     return re.findall(r"[a-zaeiounua-z0-9]+", text.lower())
+
+
+def _has_evidence_overlap(query_terms: set[str], memory_tokens: set[str]) -> bool:
+    """Match a content term, allowing the ordinary English plural suffix."""
+    for term in query_terms:
+        if term in memory_tokens:
+            return True
+        if len(term) > 3 and term.endswith("s") and term[:-1] in memory_tokens:
+            return True
+        if any(
+            len(token) > 3 and token.endswith("s") and token[:-1] == term
+            for token in memory_tokens
+        ):
+            return True
+    return False
 
 
 def _idf_weights(vocab: List[str], doc_freq: Counter, doc_count: int) -> Dict[str, float]:
@@ -422,6 +452,7 @@ class MemoryField:
         """
         now = time.time()
         q_tokens = _tokenize(query)
+        evidence_terms = set(q_tokens) - _QUERY_STOPWORDS
         q_vec = _tfidf_vector(q_tokens, self._vocab, self._idf) if self._vocab else []
 
         with self._connect() as conn:
@@ -461,6 +492,17 @@ class MemoryField:
                 cos = overlap / (len(q_tokens) + 1)
             else:
                 cos = 0.0
+
+            # A capped vocabulary can omit a rare query term, so establish
+            # evidence with direct overlap as well as TF-IDF. Recency only
+            # orders relevant results; it cannot manufacture evidence from a
+            # shared question word such as "is" or "my".
+            if q_tokens and not evidence_terms:
+                continue
+            if evidence_terms and not _has_evidence_overlap(
+                evidence_terms, set(_tokenize(content))
+            ):
+                continue
 
             state = MemoryState(r["state"])
             final = cos * state.multiplier + _recency_bonus(r["last_access"], now)

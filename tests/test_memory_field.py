@@ -46,6 +46,19 @@ def test_recall_empty_returns_empty(mem):
     assert results == []
 
 
+def test_recall_does_not_treat_recency_as_evidence_for_an_absent_fact(mem):
+    mem.store(
+        "Medication schedule lists a penicillin allergy and a morning refill.",
+        category=DocCategory.MEDICAL,
+    )
+    mem.store(
+        "The pet food is in the lower kitchen cupboard.",
+        category=DocCategory.PERSONAL,
+    )
+
+    assert mem.recall("What is my blood type?") == []
+
+
 def test_recall_updates_recall_count(tmp_path):
     mem = MemoryField(tmp_path / "m.db")
     mid = mem.store("will notarial deed contract inheritance",
