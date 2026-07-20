@@ -250,22 +250,6 @@ an older vault deliberately.
   (PBKDF2-SHA256, 260k iterations). Raw files can optionally be archived in
   the content-addressed encrypted `ArtifactStore`.
 
-## Architecture
-
-The current package is still named `legacy`; the package rename is a later
-implementation step.
-
-```
-legacy/
-├── core/       canonicalization, hash chain, audit trail, custody, time-lock,
-│               database encryption, and process locking
-├── ingestion/  document taxonomy and deterministic classifier
-├── memory/     TF-IDF + STDP memory field and consolidation
-├── knowledge/  encrypted professional-knowledge extractor
-├── vault/      AES-GCM vault, encrypted artifact store, access conditions
-└── agent/      owner/heir orchestration, queries, guide, doctor, export
-```
-
 ## Diagrams and screenshots
 
 ### Architecture diagram
