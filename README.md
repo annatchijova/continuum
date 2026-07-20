@@ -493,15 +493,10 @@ python -m pytest -q
 | `LEGACY_HMAC_KEY` | Hex HMAC key for the audit trail (recommended: at least 32 bytes) |
 | `LEGACY_HMAC_KEY_FILE` | Alternative path to a file containing the key bytes |
 
-## Hackathon session
+## Hackathon materials
 
-Codex session identifier:
-
-`019f685f-ad37-70c0-9be9-990001e4e9fe`
-
-This identifier is included for hackathon attribution and development
-traceability. It is not a credential and does not grant access to the
-repository or its data.
+- [OpenAI Build Week brief, product flow, and OpenAI/Codex integration](HACKATHON.md)
+- [Judge submission and compliance record](SUBMISSION_COMPLIANCE.md)
 
 ## The human legacy
 
