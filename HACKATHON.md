@@ -10,6 +10,10 @@ a verifiable history with a calm conversational interface.
 
 **Track:** Apps for your life.
 
+<p align="center">
+  <img src="visual/1.png" width="520" alt="Continuum: a protected continuum of personal memory">
+</p>
+
 ## Where this comes from
 
 Continuum is built and maintained by Olga Vasilieva. It began as a fork of

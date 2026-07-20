@@ -241,11 +241,10 @@ an older vault deliberately.
 
 ### Architecture diagram
 
-![Continuum architecture](visual/continuum_architecture_en.png)
+![Continuum architecture, trust boundaries, and public evaluator](visual/2.png)
 
-Source: [`visual/continuum_architecture_en.mermaid`](visual/continuum_architecture_en.mermaid).
-An earlier iteration of the diagram is kept for reference in
-[`visual/diagrama/`](visual/diagrama).
+An editable earlier architecture diagram remains available in
+[`visual/continuum_architecture_en.mermaid`](visual/continuum_architecture_en.mermaid).
 
 ### Studio walkthrough
 
