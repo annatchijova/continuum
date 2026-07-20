@@ -1,23 +1,55 @@
-# Continuum
+<p align="center">
+  <img src="visual/logo.png" alt="Logo de Continuum" width="100%">
+</p>
+
+<h1 align="center">Continuum</h1>
+
+<p align="center"><strong>Prueba de lo que importa.</strong></p>
 
 *Una memoria privada y verificable criptográficamente, para las personas que amas y para tu propia vida mientras aún la estás viviendo.*
 
 Licenciado bajo la [Licencia Apache 2.0](LICENSE).
 
-![Continuum Studio](https://img.shields.io/badge/status-hackathon%20prototype-173e3c)
+## Qué es Continuum
 
-## De dónde surge
+Continuum convierte un archivo de vida disperso —documentos, contexto,
+recuerdos y los pequeños detalles que importan en una crisis— en una **guía
+privada y respaldada por fuentes**. Es local-first: el núcleo determinista
+cifra, clasifica, recupera y audita el registro antes de cualquier narración
+opcional con IA.
 
-Continuum fue creado y es mantenido por Olga Vasilieva. Comenzó como un fork de digital-legacy, un proyecto Apache-2.0 creado por mi hija, Anna Tchijova: un sistema de memoria determinista, cifrado y auditable, construido para el día en que alguien muere y las personas que lo amaban heredan un disco duro sin ningún mapa.
+> **Pensalo como una billetera cripto para los documentos que importan.**
+> AES-GCM sella la bóveda, una cadena de auditoría SHA-256 vuelve verificables
+> los cambios relevantes, y las partes Shamir permiten que personas de
+> confianza recuperen el acceso juntas. El núcleo determinista controla la
+> evidencia y el acceso; la IA opcional puede explicar fuentes seleccionadas
+> en lenguaje claro.
 
-Esa arquitectura —un núcleo que decide y sella antes de consultar a cualquier modelo— resultó útil para muchas más situaciones. Continuum conserva sus garantías y amplía a quién sirve:
+Tiene dos experiencias deliberadamente distintas:
 
-- **Una persona hospitalizada o incapacitada de repente**, cuando un familiar necesita hoy las mismas respuestas que necesitaría un heredero.
-- **Una persona desorganizada**, para quien «¿dónde puse eso?» es un problema diario.
-- **Una persona con TDAH**, que pierde constantemente documentos, contraseñas y citas, y tiempo volviendo a encontrar cosas que solo estaban dispersas.
-- **Una persona que ya perdió a un familiar** y ahora intenta entender lo que quedó en un disco duro sin mapa.
-- **Un estudiante con cientos de apuntes dispersos** que necesita preguntar «¿dónde escribí sobre X?» y obtener una respuesta con fuentes.
-- **Cualquiera que quiera organizar su vida** con el rigor que merece un testamento, sin necesitar una crisis.
+- **Studio real:** una bóveda local cifrada para una persona y quienes elija
+  como personas de confianza. Puede usarse por completo sin API ni cuenta en
+  la nube.
+- **Evaluador público:** una copia del Studio en Vercel con 40 fixtures
+  deterministas y redactados, para que jueces prueben el flujo sin recibir una
+  bóveda ni documentos privados.
+
+**Probá el evaluador público:** [continuum-olga-demo.vercel.app](https://continuum-olga-demo.vercel.app/)
+
+## Para quién es Continuum
+
+Continuum fue diseñado para momentos en que las personas necesitan respuestas
+confiables sobre su propia vida, no otro buscador.
+
+Puede ayudar a:
+
+- Alguien hospitalizado de repente, cuya familia necesita respuestas ahora.
+- Alguien que vive con TDAH y necesita volver a encontrar documentos y
+  recordatorios dispersos.
+- Familias que cuidan a un padre o madre con demencia o pérdida de autonomía.
+- Estudiantes que administran años de apuntes, borradores y fuentes.
+- Profesionales que protegen documentos críticos y el contexto que los rodea.
+- Cualquiera que quiera un mapa privado y verificable de su propia vida.
 
 ## El problema, dicho claramente
 
@@ -25,11 +57,22 @@ Cuando la vida se vuelve difícil de recorrer —porque alguien está desbordado
 
 La respuesta fácil —«apunta una IA a todos los archivos y deja que la gente haga preguntas»— cambia un problema por otro peor. Un modelo que puede leer mal un documento, inventar un detalle o decidir quién puede acceder a qué no es confiable para un testamento, un diagnóstico, la escritura de una casa ni la información necesaria para conservar la independencia.
 
-La respuesta de Continuum es separar ambas tareas. Un núcleo determinista, cifrado y auditable decide qué existe, qué significa y quién puede verlo. Una IA —usada únicamente con consentimiento explícito para cada solicitud— puede expresar esa respuesta ya decidida en lenguaje humano. Nunca se le pide que decida nada. La claridad debe poder demostrarse, no ser solo plausible.
+La respuesta de Continuum es separar ambas tareas. Un núcleo determinista,
+cifrado y auditable decide qué existe, qué significa y quién puede verlo. Una
+IA —usada únicamente con consentimiento explícito para cada solicitud— puede
+expresar esa respuesta ya decidida en lenguaje humano. La claridad debe poder
+demostrarse, no ser solo plausible.
 
-## Works without an API key / Funciona sin una clave de API
+## Funciona sin una clave de API
 
-El producto central de Continuum no requiere una clave de API, una cuenta en la nube ni acceso a un modelo. En otras palabras: the deterministic product requires no API key, cloud account, or model access. La clave de OpenAI se usa only for the optional, per-request GPT-5.6 narration layer, es decir, únicamente para la capa opcional de narración activada por solicitud. El propietario puede crear y bloquear una bóveda, capturar y cifrar recuerdos, clasificar y recuperar evidencias, verificar la cadena de auditoría, configurar condiciones de acceso y utilizar los flujos de propietario y heredero completamente sin conexión. Desactivar la narración nunca cambia una fuente, clasificación, decisión de acceso ni resultado de integridad.
+El producto central de Continuum no requiere una clave de API, una cuenta en la
+nube ni acceso a un modelo. El propietario puede crear y bloquear una bóveda,
+capturar y cifrar recuerdos, clasificar y recuperar evidencias, verificar la
+cadena de auditoría, configurar condiciones de acceso y utilizar los flujos de
+propietario y heredero completamente sin conexión. La clave de OpenAI se usa
+únicamente para la narración opcional de GPT-5.6 por solicitud; desactivarla no
+cambia fuentes, clasificación, decisiones de acceso ni resultados de
+integridad.
 
 ## Qué hace realmente Continuum
 
@@ -40,7 +83,7 @@ El producto central de Continuum no requiere una clave de API, una cuenta en la 
 - **Entrega el hogar de forma segura.** Los propietarios definen herederos y la condición exacta que libera el acceso: inactividad, fecha fija, clave compartida o interruptor manual. El núcleo las evalúa localmente.
 - **Sobrevive al peor escenario.** Shamir Secret Sharing permite que K de N personas reconstruyan el acceso juntas, mientras que cualquier grupo de K-1 no aprende nada.
 
-## El límite ético: la IA narra, nunca decide
+## El límite ético
 
 No es un eslogan: es un límite arquitectónico aplicado en el código y probado directamente:
 
@@ -49,13 +92,45 @@ No es un eslogan: es un límite arquitectónico aplicado en el código y probado
 - Desactivar el narrador cambia únicamente la redacción, nunca las fuentes ni la autorización. Si pudiera alterar una decisión, sería un defecto de arquitectura.
 - El registro deja constancia de que hubo narración y de cuántas fuentes participaron, pero nunca de la pregunta sensible ni del texto narrado.
 
-## Probar el producto
+## Abrir el Studio real — copiar y pegar
 
-~~~bash
-python3 -m continuum_web.server --workspace .continuum-demo
-~~~
+Requisitos: Git y Python 3.11 o posterior.
 
-Abre http://127.0.0.1:8787 y elige **Explore a safe demo**. Esto crea solo datos ficticios en el espacio de trabajo indicado por --workspace. Para el script completo, la arquitectura y el límite de integración con OpenAI, consulta [HACKATHON.md](HACKATHON.md).
+```bash
+git clone https://github.com/olgavasilievaveg-hash/continuum.git
+cd continuum
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[agents]'
+./run_studio.sh --workspace .continuum-demo --port 8787
+```
+
+La terminal muestra la dirección local cuando inicia. Elegí **Run a safe
+sample** para explorar una bóveda ficticia inmediatamente: no requiere carpeta
+personal, clave de API ni cuenta. Para la versión pública lista, con fixtures y
+preguntas para evaluación, usá la [demo de Vercel](https://continuum-olga-demo.vercel.app/).
+
+### Modo demo — sin importar archivos
+
+Después de abrir el Studio, elegí **Run a safe sample**. Continuum crea una
+bóveda aislada `safe-demo` con cuatro registros ficticios: la escritura de un
+departamento, un plan de cuidado de emergencia, un archivo familiar y una lista
+de suscripciones. Después preguntá:
+
+```text
+Where is the apartment deed?
+```
+
+Para mostrar la ruta de heredero de solo lectura, bloqueá la demo segura y
+abrila como heredero con cualquier ID de heredero y esta frase de contraseña
+pública de demo:
+
+```text
+continuum-demo
+```
+
+La demo segura se reinicia en cada ejecución y nunca reemplaza un espacio de
+trabajo real. El evaluador público contiene la versión grande, pre-cargada, de
+40 fixtures.
 
 Studio no utiliza dependencias de framework web. La CLI original sigue disponible para administrar bóvedas directamente. Tiene puntos de entrada separados para propietarios y herederos; el acceso de los herederos es de solo lectura. Al crear un espacio de trabajo, el propietario debe elegir explícitamente una condición de liberación: un período de inactividad o la opción sin política. La interfaz nunca asigna una política en silencio.
 
@@ -63,36 +138,35 @@ Los propietarios pueden capturar una nota o importar un archivo local .txt, .md,
 
 Los espacios nuevos activan el cifrado de memory.db antes de la primera captura y archivan cada texto en el almacén de artefactos cifrado. Las bóvedas existentes conservan su configuración; usa legacy encrypt-db para migrar una bóveda antigua deliberadamente.
 
-## Narración opcional con ChatGPT
+### Narración opcional con IA
 
-Configura OPENAI_API_KEY e instala el Agents SDK opcional para activar la narración con GPT-5.6 sobre evidencias recuperadas localmente. También debes marcar explícitamente el consentimiento en la interfaz. El núcleo determina la recuperación y el acceso; el agente solo explica las fuentes seleccionadas.
+El Studio funciona completamente sin una clave de API. Para activar la capa
+opcional de narración de OpenAI —la integración del hackathon— configurá la
+clave antes de iniciarlo:
 
-~~~bash
-export OPENAI_API_KEY='...'
-pip install -e '.[agents]'
-python3 -m continuum_web.server
-~~~
+```bash
+export CONTINUUM_LLM_PROVIDER=openai
+export OPENAI_API_KEY='your-key-here'
+./run_studio.sh --workspace .continuum-demo --port 8787
+```
+
+OpenAI recibe solo los fragmentos que el núcleo determinista ya seleccionó, y
+solo después de que la persona marque el consentimiento en **Ask Continuum**.
+
+NVIDIA es una alternativa opcional compatible con OpenAI para una demo local o
+una cuenta diferente:
+
+```bash
+export CONTINUUM_LLM_PROVIDER=nvidia
+export NVIDIA_API_KEY='your-key-here'
+./run_studio.sh --workspace .continuum-demo --port 8787
+```
 
 ## Principios de diseño
 
 - **Determinista.** Clasificación, puntuación (aritmética Fraction, sin flotantes en decisiones) y Guía del Heredero producen el mismo resultado para la misma entrada.
 - **Auditable.** Cada operación se sella en una cadena de hash de solo anexado (SHA-256 más HMAC opcional). verify_legacy.py usa únicamente la biblioteca estándar.
 - **Cifrado.** El índice legacy vive en una bóveda AES-256-GCM (PBKDF2-SHA256, 260.000 iteraciones). Los archivos pueden archivarse en el ArtifactStore cifrado.
-
-## Arquitectura
-
-El paquete del prototipo todavía se llama legacy; cambiarle el nombre es un paso posterior.
-
-~~~
-legacy/
-├── core/       canonicalización, cadena de hash, auditoría, custodia, bloqueo temporal,
-│               cifrado de base de datos y bloqueo de procesos
-├── ingestion/  taxonomía documental y clasificador determinista
-├── memory/     campo de memoria TF-IDF + STDP y consolidación
-├── knowledge/  extractor cifrado de conocimiento profesional
-├── vault/      bóveda AES-GCM, almacén de artefactos y condiciones de acceso
-└── agent/      orquestación de propietario/heredero, consultas, guía, doctor y exportación
-~~~
 
 ## Estructura del repositorio
 
@@ -228,17 +302,14 @@ python -m pytest -q
 | LEGACY_HMAC_KEY | Clave HMAC hexadecimal para el registro (se recomiendan al menos 32 bytes) |
 | LEGACY_HMAC_KEY_FILE | Ruta a un archivo que contiene los bytes de la clave |
 
-## Sesión del hackathon
+## Materiales del hackathon
 
-Identificador de sesión de Codex:
+- [Brief de OpenAI Build Week, flujo del producto e integración de OpenAI/Codex](HACKATHON.md)
+- [Registro de entrega y cumplimiento para jueces](SUBMISSION_COMPLIANCE.md)
 
-019f685f-ad37-70c0-9be9-990001e4e9fe
+## Continuum
 
-Este identificador se incluye para la atribución del hackathon y la trazabilidad del desarrollo. No es una credencial ni concede acceso al repositorio o a sus datos.
-
-## El legado humano
-
-*Canción de [Olga Vasilieva](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925)*
+*Canción: [Continuum](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925), de Olga Vasilieva*
 
 **Verso 1**<br>
 Una fotografía entre sus manos,<br>
