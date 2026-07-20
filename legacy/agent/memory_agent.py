@@ -78,6 +78,10 @@ class LegacyIndex:
     owner_id: str
     created_at: str
     last_updated: str
+    # Optional contact identifier for product surfaces.  The core's owner_id
+    # remains an opaque audit principal, so contact data never becomes an
+    # audit-trail actor.
+    owner_email: str = ""
     artifacts: List[Dict[str, Any]] = field(default_factory=list)
     heirs: List[Dict[str, Any]] = field(default_factory=list)
     policy: Optional[Dict[str, Any]] = None
@@ -146,7 +150,13 @@ class LegacyAgent:
 
     # Vault lifecycle.
 
-    def initialize(self, passphrase: str, policy: Optional[AccessPolicy] = None) -> None:
+    def initialize(
+        self,
+        passphrase: str,
+        policy: Optional[AccessPolicy] = None,
+        *,
+        owner_email: str = "",
+    ) -> None:
         """
         Create the initial vault. Call once by the owner.
         Raise ValueError if it already exists.
@@ -159,6 +169,7 @@ class LegacyAgent:
             owner_id=self._owner_id,
             created_at=now,
             last_updated=now,
+            owner_email=owner_email,
             policy=policy.to_dict() if policy else None,
         )
         self._vault.seal(self._index.to_dict(), passphrase)
@@ -171,10 +182,22 @@ class LegacyAgent:
             detail=f"vault initialized, policy={'set' if policy else 'none'}",
         )
 
-    def open_owner(self, passphrase: str) -> None:
+    def open_owner(
+        self,
+        passphrase: str,
+        *,
+        expected_owner_email: Optional[str] = None,
+    ) -> None:
         """opens the vault as owner."""
         raw = self._vault.open(passphrase)
-        self._index = LegacyIndex.from_dict(raw)
+        index = LegacyIndex.from_dict(raw)
+        if expected_owner_email is not None and (
+            not index.owner_email or not _hmac.compare_digest(
+                index.owner_email, expected_owner_email
+            )
+        ):
+            raise VaultAuthError("The email does not match this workspace.")
+        self._index = index
         self._unlocked = True
         self._apply_db_key()
         self._audit.append(
@@ -370,7 +393,12 @@ class LegacyAgent:
         )
 
     def set_passphrase_from_recovery(
-        self, shares: List[str], new_passphrase: str, *, actor: str
+        self,
+        shares: List[str],
+        new_passphrase: str,
+        *,
+        actor: str,
+        expected_owner_email: Optional[str] = None,
     ) -> None:
         """
         Reset the vault passphrase using shares: the complete heir path
@@ -380,6 +408,13 @@ class LegacyAgent:
         if not new_passphrase:
             raise ValueError("The new passphrase cannot be empty.")
         recovery_key = combine_shares(shares)
+        if expected_owner_email is not None:
+            raw = self._vault.open_with_recovery(recovery_key)
+            index = LegacyIndex.from_dict(raw)
+            if not index.owner_email or not _hmac.compare_digest(
+                index.owner_email, expected_owner_email
+            ):
+                raise VaultAuthError("The email does not match this workspace.")
         self._vault.set_passphrase_with_recovery(recovery_key, new_passphrase)
         raw = self._vault.open(new_passphrase)
         self._index = LegacyIndex.from_dict(raw)

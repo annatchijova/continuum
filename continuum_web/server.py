@@ -7,8 +7,10 @@ keeps model output outside of every authorization and storage decision.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import threading
@@ -30,7 +32,31 @@ APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 DEFAULT_WORKSPACE = Path(os.environ.get("CONTINUUM_DATA_DIR", ".continuum"))
 MAX_JSON_BODY_BYTES = 1_000_000
-MAX_CAPTURE_BYTES = 65_536
+# Keep the Studio transport aligned with MemoryField's indexed-content limit.
+# Larger documents need a chunked importer rather than silent truncation.
+MAX_CAPTURE_BYTES = 256 * 1024
+RECOVERY_SHARE_COUNT = 5
+RECOVERY_THRESHOLD = 3
+_MANAGED_WORKSPACE_FILES = (
+    "legacy.vault",
+    "audit.db",
+    "audit.db-shm",
+    "audit.db-wal",
+    "memory.db",
+    "memory.db-shm",
+    "memory.db-wal",
+    "knowledge.db",
+    "knowledge.db-shm",
+    "knowledge.db-wal",
+    "agent.lock",
+)
+_MANAGED_WORKSPACE_DIRECTORIES = ("artifacts", "inbox")
+_EMAIL_PATTERN = re.compile(
+    r"^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?"
+    r"(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$",
+    re.IGNORECASE,
+)
 
 
 def _decode_json_object(raw: bytes) -> dict[str, Any]:
@@ -39,6 +65,31 @@ def _decode_json_object(raw: bytes) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError("Request body must be a JSON object.")
     return value
+
+
+def _normalize_email(value: str) -> str:
+    """Return the canonical local-product email identity or reject it."""
+    if not isinstance(value, str):
+        raise ValueError("Enter the owner's email address.")
+    email = value.strip().casefold()
+    if len(email) > 254 or not _EMAIL_PATTERN.fullmatch(email):
+        raise ValueError("Enter a valid email address.")
+    return email
+
+
+def _owner_principal(email: str) -> str:
+    """Keep the email out of audit actors while binding it in the vault."""
+    return "owner-" + hashlib.sha256(email.encode("utf-8")).hexdigest()[:24]
+
+
+def _studio_identity(value: str) -> str:
+    """Keep direct Python callers compatible; HTTP routes require an email."""
+    try:
+        return _normalize_email(value)
+    except ValueError:
+        if isinstance(value, str) and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", value):
+            return value
+        raise
 
 
 class Studio:
@@ -51,11 +102,12 @@ class Studio:
         self.owner_id = "owner"
         self.passphrase: str | None = None
         self.role = "owner"
+        self._demo_active = False
         self._mutex = threading.RLock()
         self._workspace_lock: AgentLock | None = None
 
-    def _new_agent(self, owner_id: str) -> LegacyAgent:
-        self.owner_id = owner_id.strip() or "owner"
+    def _new_agent(self, owner_email: str) -> LegacyAgent:
+        self.owner_id = _owner_principal(owner_email)
         return LegacyAgent(self.workspace, self.owner_id)
 
     def _acquire_workspace(self) -> None:
@@ -73,11 +125,12 @@ class Studio:
 
     def create(
         self,
-        owner_id: str,
+        owner_email: str,
         passphrase: str,
         *,
         inactivity_days: int | None = None,
         inactivity_last_activity: datetime | None = None,
+        setup_recovery: bool = False,
     ) -> dict[str, Any]:
         if len(passphrase) < 10:
             raise ValueError("Use a passphrase with at least 10 characters.")
@@ -89,10 +142,11 @@ class Studio:
             raise ValueError("Inactivity protection must be between 1 and 36,500 days.")
         if inactivity_last_activity is not None and inactivity_days is None:
             raise ValueError("An inactivity timestamp requires an inactivity policy.")
+        owner_email = _studio_identity(owner_email)
         self._require_no_open_session()
         self._acquire_workspace()
         try:
-            agent = self._new_agent(owner_id)
+            agent = self._new_agent(owner_email)
             if agent._vault.exists():
                 raise ValueError("A vault already exists here. Unlock it instead.")
             policy = None
@@ -107,10 +161,34 @@ class Studio:
                         )
                     ]
                 )
-            agent.initialize(passphrase, policy=policy)
+            agent.initialize(passphrase, policy=policy, owner_email=owner_email)
             # Studio workspaces opt into the core's database-at-rest encryption
             # before accepting their first captured memory.
             agent.encrypt_database(passphrase)
+            self.agent, self.passphrase = agent, passphrase
+            self.role = "owner"
+            recovery_shares = None
+            if setup_recovery:
+                recovery_shares = agent.setup_custody(
+                    passphrase,
+                    shares=RECOVERY_SHARE_COUNT,
+                    threshold=RECOVERY_THRESHOLD,
+                )
+            result = self.snapshot()
+            if recovery_shares is not None:
+                result["recovery_shares"] = recovery_shares
+            return result
+        except Exception:
+            self._release_workspace()
+            raise
+
+    def unlock(self, owner_email: str, passphrase: str) -> dict[str, Any]:
+        owner_email = _studio_identity(owner_email)
+        self._require_no_open_session()
+        self._acquire_workspace()
+        try:
+            agent = self._new_agent(owner_email)
+            agent.open_owner(passphrase, expected_owner_email=owner_email)
             self.agent, self.passphrase = agent, passphrase
             self.role = "owner"
             return self.snapshot()
@@ -118,14 +196,30 @@ class Studio:
             self._release_workspace()
             raise
 
-    def unlock(self, owner_id: str, passphrase: str) -> dict[str, Any]:
+    def reset_passphrase(
+        self, owner_email: str, shares: list[str], new_passphrase: str
+    ) -> dict[str, Any]:
+        """Use K-of-N custody shares to reset a lost owner passphrase."""
+        owner_email = _studio_identity(owner_email)
+        if len(new_passphrase) < 10:
+            raise ValueError("Use a passphrase with at least 10 characters.")
+        if (
+            not isinstance(shares, list)
+            or not 2 <= len(shares) <= RECOVERY_SHARE_COUNT
+            or not all(isinstance(share, str) and share.strip() for share in shares)
+        ):
+            raise ValueError("Enter the recovery shares, one per line.")
         self._require_no_open_session()
         self._acquire_workspace()
         try:
-            agent = self._new_agent(owner_id)
-            agent.open_owner(passphrase)
-            self.agent, self.passphrase = agent, passphrase
-            self.role = "owner"
+            agent = self._new_agent(owner_email)
+            agent.set_passphrase_from_recovery(
+                [share.strip() for share in shares],
+                new_passphrase,
+                actor=self.owner_id,
+                expected_owner_email=owner_email,
+            )
+            self.agent, self.passphrase, self.role = agent, new_passphrase, "owner"
             return self.snapshot()
         except Exception:
             self._release_workspace()
@@ -154,6 +248,9 @@ class Studio:
             self.agent.lock(self.passphrase)
         self.agent, self.passphrase = None, None
         self._release_workspace()
+        if self._demo_active:
+            self.workspace = self.root
+            self._demo_active = False
 
     def require_open(self) -> LegacyAgent:
         if self.agent is None:
@@ -161,7 +258,13 @@ class Studio:
         return self.agent
 
     def capture(
-        self, title: str, body: str, tags: list[str], *, filename: str | None = None
+        self,
+        title: str,
+        body: str,
+        tags: list[str],
+        *,
+        filename: str | None = None,
+        include_dashboard: bool = True,
     ) -> dict[str, Any]:
         agent = self.require_open()
         if self.role != "owner":
@@ -176,7 +279,7 @@ class Studio:
         if not body:
             raise ValueError("Add a memory before saving it.")
         if len(body.encode("utf-8")) > MAX_CAPTURE_BYTES:
-            raise ValueError("Captured text must be 64 KiB or smaller.")
+            raise ValueError("Captured text must be 256 KiB or smaller.")
         if self.passphrase is None:
             raise RuntimeError("The open workspace has no session passphrase.")
         inbox = self.workspace / "inbox"
@@ -191,7 +294,43 @@ class Studio:
             agent.archive_artifact(path, self.passphrase)
         finally:
             path.unlink(missing_ok=True)
-        return {"record": record.to_dict(), "dashboard": self.snapshot()}
+        result = {"record": record.to_dict()}
+        if include_dashboard:
+            result["dashboard"] = self.snapshot()
+        return result
+
+    def delete_workspace(
+        self, owner_email: str, passphrase: str
+    ) -> dict[str, bool]:
+        """Permanently remove only Continuum-managed data for an open owner vault."""
+        agent = self.require_open()
+        if self.role != "owner":
+            raise ValueError("Heir access is read-only and cannot delete a workspace.")
+        expected_email = agent._index.owner_email if agent._index else ""
+        if not expected_email or not secrets.compare_digest(
+            owner_email.strip().casefold(), expected_email
+        ):
+            raise ValueError("Enter the owner email that is bound to this workspace.")
+        if self.passphrase is None or not secrets.compare_digest(passphrase, self.passphrase):
+            raise ValueError("Re-enter the current vault passphrase to delete the workspace.")
+
+        target = self.workspace.resolve()
+        agent._audit.append(
+            "WORKSPACE_DELETION_REQUESTED",
+            actor=self.owner_id,
+            detail="owner confirmed permanent deletion of Continuum-managed data",
+        )
+        self.lock()
+        for name in _MANAGED_WORKSPACE_DIRECTORIES:
+            shutil.rmtree(target / name, ignore_errors=True)
+        for name in _MANAGED_WORKSPACE_FILES:
+            (target / name).unlink(missing_ok=True)
+        try:
+            target.rmdir()
+        except OSError:
+            # Deliberately preserve any unrelated owner files in a custom workspace.
+            pass
+        return {"deleted": True}
 
     def ask(self, question: str, *, allow_narration: bool = False) -> dict[str, Any]:
         agent = self.require_open()
@@ -270,7 +409,11 @@ class Studio:
                 "selected_sources": len(sources),
                 "narration": narration_status,
             },
-            "mode": "GPT-5.6 narration + deterministic retrieval" if narration else "deterministic retrieval",
+            "mode": (
+                f"{narrator._provider().title()} narration + deterministic retrieval"
+                if narration
+                else "deterministic retrieval"
+            ),
         }
 
     def heir_guide(self) -> dict[str, str]:
@@ -291,6 +434,7 @@ class Studio:
         integrity = self.integrity_report()
         return {
             "owner_id": summary["owner_id"],
+            "owner_email": agent._index.owner_email if agent._index else "",
             "created_at": summary["created_at"],
             "total_artifacts": summary["total_artifacts"],
             "by_category": summary["by_category"],
@@ -301,6 +445,7 @@ class Studio:
             "database_encrypted": bool(agent._index and agent._index.db_key_hex),
             "heir_policy_configured": bool(agent._index and agent._index.policy),
             "role": self.role,
+            "workspace_mode": "safe_demo" if self._demo_active else "private",
             "open": True,
         }
 
@@ -316,11 +461,12 @@ class Studio:
         # documented heir-view walkthrough remains possible without changing
         # the protection assigned to any real Studio workspace.
         self.create(
-            "Alex Morgan",
+            "alex.morgan@example.test",
             "continuum-demo",
             inactivity_days=90,
             inactivity_last_activity=datetime.now(timezone.utc) - timedelta(days=90),
         )
+        self._demo_active = True
         memories = [
             ("Apartment deed", "Property deed for the apartment at 42 Cedar Street. The notary is Elena Ruiz and the original is in the blue archival folder.", ["home", "urgent"]),
             ("Emergency care plan", "Medical history: allergy to penicillin. Primary physician: Dr. Lee. Keep the current medication list with this note.", ["health"]),
@@ -369,6 +515,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
     def do_GET(self) -> None:
@@ -384,11 +531,19 @@ class Handler(SimpleHTTPRequestHandler):
         route = urlparse(self.path).path
         routes = {
             "/api/create": lambda body: self.studio.create(
-                body.get("owner_id", "owner"),
+                _normalize_email(body.get("owner_email", "")),
                 body.get("passphrase", ""),
                 inactivity_days=body.get("inactivity_days"),
+                setup_recovery=body.get("setup_recovery") is True,
             ),
-            "/api/unlock": lambda body: self.studio.unlock(body.get("owner_id", "owner"), body.get("passphrase", "")),
+            "/api/unlock": lambda body: self.studio.unlock(
+                _normalize_email(body.get("owner_email", "")), body.get("passphrase", "")
+            ),
+            "/api/reset-passphrase": lambda body: self.studio.reset_passphrase(
+                _normalize_email(body.get("owner_email", "")),
+                body.get("shares", []),
+                body.get("new_passphrase", ""),
+            ),
             "/api/unlock-heir": lambda body: self.studio.unlock_heir(
                 body.get("heir_id", ""),
                 body.get("passphrase", ""),
@@ -398,6 +553,11 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/capture": lambda body: self.studio.capture(
                 body.get("title", ""), body.get("body", ""), body.get("tags", []),
                 filename=body.get("filename"),
+                include_dashboard=body.get("include_dashboard") is not False,
+            ),
+            "/api/delete-workspace": lambda body: self.studio.delete_workspace(
+                _normalize_email(body.get("owner_email", "")),
+                body.get("passphrase", ""),
             ),
             "/api/ask": lambda body: self.studio.ask(
                 body.get("question", ""),
@@ -443,7 +603,6 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
-        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(raw)
 

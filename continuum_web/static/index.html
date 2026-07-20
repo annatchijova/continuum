@@ -15,7 +15,7 @@
       <nav>
         <a class="brand" href="#top" aria-label="Continuum home"><span class="brand-mark">∞</span><span>continuum</span><small>STUDIO</small></a>
         <div class="nav-status"><span class="pulse"></span><span id="navStatus">Local cryptographic workspace</span></div>
-        <button class="quiet" id="lockButton" hidden><span>⌁</span> Lock workspace</button>
+        <div class="nav-actions"><button class="quiet" id="languageToggle" type="button" aria-label="Cambiar idioma">ES</button><button class="quiet" id="lockButton" hidden><span>⌁</span> Lock workspace</button></div>
       </nav>
 
       <section class="hero" id="top">
@@ -24,8 +24,8 @@
           <h1>Your story deserves<br /><em>proof</em>, not just storage.</h1>
           <p class="lede">Continuum transforms the documents, context and memories of a life into a private guide — encrypted, verifiable and ready for the people you trust.</p>
           <div class="hero-actions">
-            <button class="primary" id="demoButton">Enter the living archive <span>↗</span></button>
-            <button class="secondary" id="setupButton">Create private workspace</button>
+            <button class="primary" id="setupButton">Create a real workspace <span>↗</span></button>
+            <button class="secondary" id="demoButton">Run a safe sample</button>
           </div>
           <div class="hero-proof"><span><i></i> 100% local control</span><span><i></i> AES-256-GCM vault</span><span><i></i> SHA-256 audit chain</span></div>
         </div>
@@ -45,19 +45,22 @@
       </section>
 
       <section class="onboarding panel reveal" id="onboarding">
-        <div class="panel-intro"><p class="eyebrow"><span></span> BEGIN WITH INTENT</p><h2>Open your private<br /><em>continuum.</em></h2><p>Your passphrase exists only for this local browser session. The release policy is set in the deterministic vault, not by AI.</p><div class="panel-seal">⌬ &nbsp; Privacy is the default state.</div></div>
+        <div class="panel-intro"><p class="eyebrow"><span></span> CREATE A REAL WORKSPACE</p><h2>Start your private<br /><em>continuum.</em></h2><p>Create the encrypted vault first. Every field below is required before anything can be written. The release policy is set in the deterministic vault, not by AI.</p><div class="panel-seal">⌬ &nbsp; Privacy is the default state.</div></div>
         <form id="workspaceForm">
-          <label>Owner name / heir ID<input id="owner" value="Alex Morgan" autocomplete="name" required /></label>
-          <label>Passphrase<input id="passphrase" type="password" minlength="10" placeholder="At least 10 characters" required /></label>
+          <label>Owner email <small>required; used to bind this local vault</small><input id="owner" type="email" autocomplete="email" placeholder="you@example.com" required /></label>
+          <label>Vault passphrase <small>required; at least 10 characters</small><input id="passphrase" type="password" minlength="10" autocomplete="new-password" placeholder="Create a strong passphrase" required /></label>
+          <label>Confirm vault passphrase <small>required</small><input id="confirmPassphrase" type="password" minlength="10" autocomplete="new-password" placeholder="Repeat the passphrase" required /></label>
           <label>Heir release condition<select id="inactivityDays" required><option value="" selected disabled>Choose before creating</option><option value="90">After 90 days without owner activity</option><option value="180">After 180 days without owner activity</option><option value="365">After 365 days without owner activity</option><option value="none">No policy — not recommended</option></select></label>
-          <label class="heir-key">Heir key <small>only if the owner gave you one</small><input id="heirKey" type="password" placeholder="Optional recovery key" /></label>
-          <div class="form-actions"><button class="primary" type="submit">Seal my workspace <span>↗</span></button><button class="text-button" type="button" id="unlockButton">Open as owner</button><button class="text-button" type="button" id="heirButton">Open as heir</button></div>
+          <div class="form-actions"><button class="primary" type="submit">Create encrypted workspace <span>↗</span></button></div>
           <p class="form-note" id="formNote"></p>
         </form>
+        <details class="existing-access"><summary>Already have a workspace? Open it here.</summary><div class="access-fields"><label>Owner email<input id="accessOwner" type="email" autocomplete="email" placeholder="you@example.com" /></label><label>Passphrase<input id="accessPassphrase" type="password" autocomplete="current-password" placeholder="Vault passphrase" /></label><label>Heir ID <small>only for the heir route</small><input id="accessHeirId" autocomplete="username" placeholder="Heir ID" /></label><label>Heir key <small>only if the owner gave you one</small><input id="accessHeirKey" type="password" placeholder="Optional recovery key" /></label></div><div class="form-actions"><button class="text-button" type="button" id="unlockButton">Open as owner</button><button class="text-button" type="button" id="heirButton">Open as heir</button></div><p class="form-note" id="accessNote"></p><details class="recovery-access"><summary>Forgot the passphrase? Recover with trusted custodians.</summary><div class="access-fields"><label>Owner email<input id="recoveryOwner" type="email" autocomplete="email" placeholder="you@example.com" /></label><label>New vault passphrase<input id="recoveryPassphrase" type="password" minlength="10" autocomplete="new-password" placeholder="At least 10 characters" /></label><label class="recovery-shares">Recovery shares <small>Paste three or more shares, one per line. They are sent only to this local server.</small><textarea id="recoveryShares" autocomplete="off" placeholder="dlshare-v1:…"></textarea></label><label>Confirm new passphrase<input id="recoveryConfirm" type="password" minlength="10" autocomplete="new-password" placeholder="Repeat the new passphrase" /></label></div><div class="form-actions"><button class="text-button" type="button" id="resetPassphraseButton">Reset with recovery shares</button></div><p class="form-note" id="recoveryNote"></p></details></details>
       </section>
 
+      <section class="recovery-card" id="recoveryCard" hidden aria-live="polite"><p class="eyebrow"><span></span> RECOVERY MATERIAL — SHOW ONCE</p><h2>Give these five parts<br /><em>to separate trusted people.</em></h2><p>Any three parts can reset the vault passphrase. Continuum does not store them; copy each part now through separate trusted channels.</p><ol id="recoveryShareList"></ol><button class="primary" id="recoverySavedButton" type="button">I saved all five parts <span>↗</span></button></section>
+
       <section class="studio" id="studio" hidden>
-        <header class="studio-heading reveal"><div><p class="eyebrow"><span></span> VERIFIED CONTINUUM</p><h2>Welcome back, <span id="ownerName">Alex</span>.</h2><p id="subheading">Your private memory is clear, connected and ready when it matters.</p><p class="security-note" id="securityNote" hidden></p></div><div class="heading-actions"><button class="guide-button" id="guideButton">Heir guide <span>↗</span></button><button class="guide-button" id="verifyButton">Verify integrity <span>⌁</span></button><div class="integrity"><span class="integrity-dot" id="integrityDot"></span><div><small>CORE STATUS</small><strong id="integrityText">verified</strong></div></div></div></header>
+        <header class="studio-heading reveal"><div><p class="eyebrow"><span></span> VERIFIED CONTINUUM</p><h2>Welcome back, <span id="ownerName">Alex</span>.</h2><p id="subheading">Your private memory is clear, connected and ready when it matters.</p><p class="security-note" id="securityNote" hidden></p></div><div class="heading-actions"><button class="guide-button" id="guideButton">Heir guide <span>↗</span></button><button class="guide-button" id="verifyButton">Verify integrity <span>⌁</span></button><button class="guide-button danger-button" id="deleteWorkspaceButton">Delete workspace</button><div class="integrity"><span class="integrity-dot" id="integrityDot"></span><div><small>CORE STATUS</small><strong id="integrityText">verified</strong></div></div></div></header>
 
         <div class="metrics reveal">
           <article><span class="metric-symbol">◌</span><span>Memories protected</span><strong id="memoryCount">0</strong><small>encrypted and indexed locally</small></article>
@@ -65,12 +68,32 @@
           <article><span class="metric-symbol">⟠</span><span>Verified moments</span><strong id="auditCount">0</strong><small>sealed into your audit history</small></article>
         </div>
 
+        <section class="demo-console reveal" aria-labelledby="demoConsoleTitle">
+          <div class="demo-console-copy">
+            <p class="eyebrow"><span></span> LIVE DEMO CONTROL ROOM</p>
+            <h3 id="demoConsoleTitle">Show the guarantees<br />as they happen.</h3>
+            <p>Capture stays local. Retrieval selects evidence before any narration. Integrity is verified by the deterministic core, not by this interface.</p>
+          </div>
+          <div class="proof-status" aria-label="Current protection status">
+            <div><small>SESSION</small><strong id="sessionStatus">LOCAL OWNER SESSION</strong></div>
+            <div><small>DATABASE</small><strong id="databaseStatus">FIELD ENCRYPTION ON</strong></div>
+            <div><small>AUDIT</small><strong id="auditStatus">VERIFYING</strong></div>
+            <div><small>AI BOUNDARY</small><strong>OPT-IN PER QUESTION</strong></div>
+          </div>
+          <ol class="demo-steps" aria-label="End-to-end demo sequence">
+            <li><span>01</span><p><strong>Seal evidence</strong> Import or capture local records.</p></li>
+            <li><span>02</span><p><strong>Ask with sources</strong> Inspect the core-selected evidence.</p></li>
+            <li><span>03</span><p><strong>Verify integrity</strong> Check audit and memory records together.</p></li>
+            <li><span>04</span><p><strong>Lock or hand over</strong> Clear the session, then open the read-only heir path.</p></li>
+          </ol>
+        </section>
+
         <div class="workspace-grid reveal">
-          <section class="ask-card"><div class="section-kicker"><span class="spark">✦</span><span>ASK CONTINUUM</span><span class="deterministic">core-selected evidence</span></div><h3>Find the thread<br />that holds it together.</h3><p>Ask about a document, a person, or the context your family may need next.</p><form id="askForm"><input id="question" placeholder="Where is the apartment deed?" autocomplete="off" /><button class="primary" aria-label="Ask Continuum">↗</button></form><label class="consent"><input id="narrationConsent" type="checkbox" /> <span>Also send only selected excerpts to OpenAI for an empathetic narration.</span></label><div id="answer" class="answer empty">Answers include their sources so everyone can see exactly what the deterministic core found.</div></section>
+          <section class="ask-card"><div class="section-kicker"><span class="spark">✦</span><span>ASK CONTINUUM</span><span class="deterministic">core-selected evidence</span></div><h3>Find the thread<br />that holds it together.</h3><p>Ask about a document, a person, or the context your family may need next.</p><form id="askForm"><input id="question" placeholder="Where is the apartment deed?" autocomplete="off" /><button class="primary" aria-label="Ask Continuum">↗</button></form><label class="consent"><input id="narrationConsent" type="checkbox" /> <span>Also send only selected excerpts to the configured AI provider for an empathetic narration.</span></label><div id="answer" class="answer empty">Answers include their sources so everyone can see exactly what the deterministic core found.</div></section>
           <section class="map-card"><div class="section-kicker"><span>YOUR LEGACY MAP</span><span id="mapLabel">No memories yet</span></div><div class="map-orbit" aria-hidden="true"><i></i><i></i><i></i><b>⌬</b></div><div class="category-list" id="categoryList"></div><p class="map-foot">Classification is deterministic. AI may explain what it finds, but it never decides access or changes your record.</p></section>
         </div>
 
-        <section class="capture-card reveal" id="captureCard"><div><p class="eyebrow"><span></span> PRESERVE CONTEXT</p><h3>Save what a file<br />can never explain.</h3><p>A sentence, a detail, or why something matters turns an archive into a guide.</p><div class="capture-proof">Encrypted archive · deterministic classification · immutable audit event</div></div><form id="captureForm"><label>Title<input id="memoryTitle" placeholder="The blue folder" required /></label><label>What should your people know?<textarea id="memoryBody" placeholder="The original house deed is in the blue archival folder..." required></textarea></label><label>Import a local text file <small>.txt, .md, .csv, or .json; up to 64 KiB and stays local</small><input id="memoryFile" type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json" /></label><label>Tags <small>optional, comma-separated</small><input id="memoryTags" placeholder="home, urgent" /></label><button class="primary" type="submit">Seal this memory <span>↗</span></button><p class="capture-note" id="captureNote"></p></form></section>
+        <section class="capture-card reveal" id="captureCard"><div><p class="eyebrow"><span></span> PRESERVE CONTEXT</p><h3>Save what a file<br />can never explain.</h3><p>A sentence, a detail, or why something matters turns an archive into a guide.</p><div class="capture-proof">Encrypted archive · deterministic classification · immutable audit event</div></div><form id="captureForm"><label>Title<input id="memoryTitle" placeholder="The blue folder" required /></label><label>What should your people know?<textarea id="memoryBody" placeholder="The original house deed is in the blue archival folder..." required></textarea></label><label>Import a local text file <small>.txt, .md, .csv, or .json; up to 256 KiB and stays local</small><input id="memoryFile" type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json" /></label><label>Tags <small>optional, comma-separated</small><input id="memoryTags" placeholder="home, urgent" /></label><div class="batch-import"><div><strong>Batch import local text records</strong><p>Add several selections, choose an entire folder, or drag a folder here. Continuum keeps every selection in one queue, reads supported local text files in your browser, and seals them one at a time; importing never calls an AI provider.</p></div><div class="batch-actions"><label class="file-picker"><span id="batchFilesLabel">Select many files</span><input id="batchFiles" type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json" multiple /></label><label class="file-picker"><span id="batchFolderLabel">Choose a folder</span><input id="batchFolder" type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json" multiple webkitdirectory /></label><button class="secondary" id="batchImportButton" type="button" disabled>Seal selected records</button></div><div class="batch-drop" id="batchDrop" tabindex="0" role="button" aria-describedby="batchNote"><strong id="batchDropTitle">Drop local text files or a folder here</strong><span id="batchDropHint">or add more selections with the buttons above</span></div><p class="capture-note" id="batchNote" aria-live="polite">No local records selected.</p></div><button class="primary" type="submit">Seal this memory <span>↗</span></button><p class="capture-note" id="captureNote" aria-live="polite"></p></form></section>
         <section class="guide-card reveal" id="guideCard" hidden><div class="section-kicker"><span>CORE-GENERATED HEIR GUIDE</span><button class="text-button" id="closeGuide" type="button">Close</button></div><pre id="guideContent"></pre></section>
 
         <section class="principles reveal"><article><span>01</span><h3>Human before automation</h3><p>Continuum makes things easier to understand; it does not make legal, medical, or access decisions.</p></article><article><span>02</span><h3>Proof, not promises</h3><p>Every meaningful action is sealed into a tamper-evident audit history.</p></article><article><span>03</span><h3>Private by architecture</h3><p>Your encrypted vault is the source of truth. The product never treats an AI response as authority.</p></article></section>
