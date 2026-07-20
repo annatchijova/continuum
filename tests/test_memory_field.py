@@ -59,6 +59,23 @@ def test_recall_does_not_treat_recency_as_evidence_for_an_absent_fact(mem):
     assert mem.recall("What is my blood type?") == []
 
 
+def test_recall_ignores_orphan_apostrophe_fragment_as_evidence(mem):
+    # FIX: "What's" tokenizes into "what" + a bare "s" fragment. That "s" is
+    # not a stopword, so it used to survive as an "evidence term" and match
+    # any document containing an apostrophe (e.g. "Dr. Lee's", "Milo's"),
+    # letting unrelated documents pass the relevance filter.
+    mem.store(
+        "Dr. Lee's contact info: direct line, mentions penicillin allergy.",
+        category=DocCategory.MEDICAL,
+    )
+    mem.store(
+        "Milo's food is in the lower kitchen cupboard.",
+        category=DocCategory.PERSONAL,
+    )
+
+    assert mem.recall("What's my blood type?") == []
+
+
 def test_recall_updates_recall_count(tmp_path):
     mem = MemoryField(tmp_path / "m.db")
     mid = mem.store("will notarial deed contract inheritance",

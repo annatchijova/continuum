@@ -452,7 +452,14 @@ class MemoryField:
         """
         now = time.time()
         q_tokens = _tokenize(query)
-        evidence_terms = set(q_tokens) - _QUERY_STOPWORDS
+        # FIX: a contraction or possessive ("what's", "Dr. Lee's") tokenizes
+        # into a real word plus an orphan one-character fragment ("s"). That
+        # fragment is not a stopword, so it was surviving as "evidence" and
+        # matching almost any document containing an apostrophe — exactly
+        # the kind of accidental overlap this filter exists to reject.
+        evidence_terms = {
+            t for t in q_tokens if t not in _QUERY_STOPWORDS and len(t) > 1
+        }
         q_vec = _tfidf_vector(q_tokens, self._vocab, self._idf) if self._vocab else []
 
         with self._connect() as conn:
