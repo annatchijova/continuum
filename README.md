@@ -134,9 +134,10 @@ python3 -m venv .venv
 ./run_studio.sh --workspace .continuum-demo --port 8787
 ```
 
-Then open **http://127.0.0.1:8787** in your browser. Click **Run a safe
-sample** to explore a fictional local vault immediately: no personal folder,
-API key, or account is required.
+The terminal prints the local Studio address when it starts. Click **Run a
+safe sample** to explore a fictional local vault immediately: no personal
+folder, API key, or account is required. For the ready-to-explore public
+fixture with evaluator questions, use the **[Vercel demo](https://continuum-olga-demo.vercel.app/)** above.
 
 ### Demo mode — no files to import
 
