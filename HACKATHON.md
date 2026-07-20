@@ -10,6 +10,18 @@ a verifiable history with a calm conversational interface.
 
 **Track:** Apps for your life.
 
+## Where this comes from
+
+Continuum is built and maintained by Olga Vasilieva. It began as a fork of
+Digital Legacy, an Apache-2.0 project by her daughter, Anna Tchijova: a
+deterministic, encrypted, audited memory system for the moment when someone
+dies and the people who loved them inherit a hard drive with no map.
+
+That foundation proved useful well before an inheritance event. Continuum
+keeps its guarantees while making the same private, source-backed map useful
+for hospitalizations, disability, dementia care, personal organization,
+education, and everyday life.
+
 ## The live demo flow
 
 1. Run the app and select **Explore a safe demo**.

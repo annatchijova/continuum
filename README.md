@@ -21,8 +21,8 @@ retrieves, and audits the record before any optional AI narration is involved.
 > **Think of it as a crypto wallet for the documents that matter.** AES-GCM
 > seals the vault, a SHA-256 audit chain makes meaningful changes verifiable,
 > and Shamir shares let trusted people recover access together. The
-> deterministic core decides evidence and access; optional AI may explain
-> selected sources, but it never gets to decide anything.
+> deterministic core controls evidence and access; optional AI may explain
+> selected sources in plain language.
 
 It has two intentionally different experiences:
 
@@ -34,33 +34,20 @@ It has two intentionally different experiences:
 
 **Try the public evaluator:** [continuum-olga-demo.vercel.app](https://continuum-olga-demo.vercel.app/)
 
-## Where this comes from
+## Who Continuum is for
 
-Continuum is built and maintained by Olga Vasilieva. It started as a fork of
-digital-legacy, an Apache-2.0 project by my daughter, Anna Tchijova: a
-deterministic, encrypted, audited memory system built for one specific
-moment — the day someone dies and the people who loved them inherit a hard
-drive with no map. (The link goes here once that repository is public.)
+Continuum was designed for moments when people need trustworthy answers about
+their own lives, not another search engine.
 
-That architecture — a core that decides and seals *before* any model is ever
-consulted — turned out to be useful for a much longer list of moments than
-just the last one. Continuum keeps every one of the original guarantees and
-widens who it serves:
+It can help:
 
-- **Someone hospitalized or suddenly incapacitated**, where a family member
-  needs the same answers an heir would need — today, not after a funeral.
-- **Someone disorganized**, for whom "where did I put that" is a daily tax,
-  not a one-time crisis.
-- **Someone with ADHD** — my own daughter among them — who loses track of
-  documents, passwords, and appointments constantly, and loses real time
-  re-finding things that were never actually lost, just scattered.
-- **Someone who already lost a family member** and is now the one holding
-  the hard drive with no map, trying to make sense of what's left.
-- **A student with hundreds of scattered notes** — lecture notes, half-written
-  papers, source citations — who needs to ask "where did I write about X"
-  and get a sourced answer instead of grepping through folders by hand.
-- **Anyone who just wants their own life organized** with the rigor a will
-  deserves, without needing a crisis to justify the effort.
+- Someone suddenly hospitalized, when family needs answers now.
+- Someone living with ADHD, who needs scattered documents and reminders to be
+  findable again.
+- Families caring for a parent with dementia or declining independence.
+- Students managing years of notes, drafts, and source material.
+- Professionals protecting critical documents and the context around them.
+- Anyone who wants a private, verifiable map of their own life.
 
 ## The problem, stated plainly
 
@@ -84,9 +71,9 @@ moment to introduce a system that might be confidently wrong.
 Continuum's answer is to separate the two jobs. A deterministic, encrypted,
 audited core decides what exists, what it means, and who may see it. An AI —
 used only with explicit, per-request consent — may put that already-decided
-answer into gentle, human language. It is never asked to decide anything.
-The people left behind deserve clarity delivered with warmth, but the clarity
-itself has to be provable, not just plausible.
+answer into gentle, human language. The people left behind deserve clarity
+delivered with warmth, but the clarity itself has to be provable, not just
+plausible.
 
 ## Works without an API key
 
@@ -183,7 +170,7 @@ export NVIDIA_API_KEY='your-key-here'
 ./run_studio.sh --workspace .continuum-demo --port 8787
 ```
 
-## The ethical line: AI narrates, it never decides
+## The ethical line
 
 This is not a slogan; it is an architectural boundary enforced in code and
 tested directly:
@@ -242,7 +229,7 @@ an older vault deliberately.
 
 - **Deterministic.** Classification, scoring (`Fraction` arithmetic, with no
   floats in decisions), and the Heir Guide produce the same output for the
-  same input. An LLM may narrate results, but never decide them.
+  same input. An LLM can only narrate the result.
 - **Auditable.** Every operation is sealed in an append-only hash chain
   (SHA-256 plus optional HMAC). `verify_legacy.py` is stdlib-only and can be
   given to heirs or auditors to verify the chain without installing anything.
