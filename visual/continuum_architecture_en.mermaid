@@ -1,0 +1,106 @@
+flowchart TB
+
+    %% ── Actors ──────────────────────────────────────────────
+    OWNER(["Owner"])
+    HEIR(["Heir"])
+    CUSTODIANS(["Custodians<br/>(N trusted people)"])
+
+    %% ── User interfaces ────────────────────────────────────
+    subgraph UI["User Interfaces"]
+        direction LR
+        CLI["CLI<br/>(legacy command, cli.py)"]
+        STUDIO["Local Studio Server<br/>(continuum_web/server.py)<br/>HTTP 127.0.0.1:8787 — loopback only"]
+        WEBDEMO["Static Web Demo<br/>(Vercel, no backend)<br/>curated fixtures — judges/preview only"]
+    end
+
+    %% ── Orchestrator ────────────────────────────────────────
+    subgraph ORQ["Orchestrator"]
+        AGENT["LegacyAgent<br/>(legacy/agent/memory_agent.py)"]
+    end
+
+    %% ── Deterministic core ──────────────────────────────────
+    subgraph CORE["Deterministic Core — decides EVERYTHING before any AI is consulted"]
+        CLASS["DocumentClassifier<br/>deterministic rules (keywords + regex), no LLM<br/>Fraction arithmetic — taxonomy of 10 DocTypes:<br/>LEGAL · FINANCIAL · MEDICAL · IDENTITY · REAL_ESTATE ·<br/>SUBSCRIPTION · PROFESSIONAL · MEDIA · PERSONAL · CREDENTIAL"]
+        QUERY["QueryEngine<br/>intent detection: LOCATE / LIST / TIMELINE /<br/>STATUS / PERSON / KNOWLEDGE / GENERAL<br/>category filtering"]
+        MEM["MemoryField<br/>TF-IDF/STDP index in SQLite (WAL)<br/>states: REINFORCED / NEUTRAL / FORGOTTEN"]
+        CONSOL["Consolidator<br/>deduplication + decay"]
+        VAULT["Vault / Locker<br/>AES-256-GCM encrypted index<br/>v2 keyslot scheme (passphrase + recovery)<br/>PBKDF2-SHA256"]
+        ART["ArtifactStore<br/>AES-256-GCM encrypted file storage<br/>content-addressed by SHA-256<br/>path &lt;id[:2]&gt;/&lt;id&gt;.enc"]
+        AUDIT["AuditTrail<br/>append-only SHA-256 hash chain<br/>optional HMAC — SQLite"]
+        POLICY["AccessPolicy / Conditions<br/>InactivityCondition · DateCondition ·<br/>HeirKeyCondition · ManualCondition<br/>combinable with AND/OR"]
+        KNOW["KnowledgeBase (optional)<br/>domain professional knowledge extraction<br/>medicine, engineering, law…"]
+    end
+
+    %% ── Cryptographic primitives ────────────────────────────
+    subgraph CRYPTO["Base Cryptographic Primitives"]
+        direction LR
+        SHAMIR["Shamir Secret Sharing<br/>K-of-N recovery over GF(2^8)"]
+        CHAIN["Hash Chain<br/>SHA-256 + optional HMAC"]
+        FCIPHER["Field Cipher<br/>AES-256-GCM column encryption in the DB"]
+        TLOCK["Timelock puzzle (optional)<br/>sequential computation for offline recovery"]
+        ALOCK["AgentLock<br/>fcntl — prevents concurrent instances"]
+    end
+
+    %% ── AI narration boundary ────────────────────────────────
+    subgraph AI["AI Narration Boundary — outside the decision path"]
+        NARR["Narrator (narrator.py)<br/>OpenAI Agents SDK (gpt-5.6) or NVIDIA NIM<br/>opt-in per question · stateless · no tracing<br/>only narrates the already-determined answer:<br/>never classifies, ranks, or controls access"]
+    end
+
+    %% ── Actors → Interfaces ──────────────────────────────────
+    OWNER -->|"uses"| CLI
+    OWNER -->|"uses"| STUDIO
+    HEIR -->|"heir access (read-only)"| STUDIO
+
+    %% ── Interfaces → Orchestrator ─────────────────────────────
+    CLI -->|"calls"| AGENT
+    STUDIO -->|"calls"| AGENT
+    WEBDEMO -->|"calls (demo flows)"| AGENT
+
+    %% ── Flow 1: Ingestion ─────────────────────────────────────
+    AGENT -->|"1· ingest()"| CLASS
+    CLASS -->|"1· store() — indexes memory"| MEM
+    CLASS -->|"1· put() — encrypted copy"| ART
+    MEM -->|"1· append()"| AUDIT
+    ART -->|"1· append()"| AUDIT
+    AGENT -->|"1· optional (--knowledge)"| KNOW
+
+    %% ── Flow 2: Query ─────────────────────────────────────────
+    AGENT -->|"2· query()"| QUERY
+    QUERY -->|"2· recall()"| MEM
+    QUERY -->|"2· answer with sources"| AGENT
+
+    %% ── Flow 3: Heir access ───────────────────────────────────
+    AGENT -->|"3· open_heir() → evaluate()"| POLICY
+    POLICY -->|"3· conditions met →<br/>opens in read-only mode"| VAULT
+
+    %% ── Flow 4: Custody / recovery ────────────────────────────
+    OWNER -->|"4· custody setup K-of-N"| SHAMIR
+    SHAMIR -->|"4· distributes N shares"| CUSTODIANS
+    CUSTODIANS -->|"4· K shares reconstruct recovery_key →<br/>passphrase reset via Vault"| VAULT
+
+    %% ── Internal core maintenance ─────────────────────────────
+    CONSOL -->|"periodic consolidation"| MEM
+
+    %% ── Core → Primitives ──────────────────────────────────────
+    VAULT -->|"keyslot recovery"| SHAMIR
+    VAULT -->|"encrypt-db (columns)"| FCIPHER
+    VAULT -->|"optional offline recovery"| TLOCK
+    AUDIT -->|"event sealing"| CHAIN
+    AGENT -->|"single instance"| ALOCK
+
+    %% ── AI boundary: strictly downstream ─────────────────────
+    QUERY -.->|"2· opt-in with explicit consent:<br/>only evidence ALREADY selected by the core"| NARR
+    NARR -.->|"2· append(): records that a query happened —<br/>never the question or the narrated answer"| AUDIT
+
+    %% ── Styles ──────────────────────────────────────────────
+    style UI fill:#eef4fb,stroke:#2c5f8a,stroke-width:1.5px
+    style ORQ fill:#fdf6e3,stroke:#a07d1c,stroke-width:1.5px
+    style CORE fill:#edf7ee,stroke:#1e8449,stroke-width:2.5px
+    style CRYPTO fill:#f4f0fa,stroke:#5b3a8e,stroke-width:1.5px
+    style AI fill:#fdf0ef,stroke:#c0392b,stroke-width:2px,stroke-dasharray:8 5
+
+    style NARR fill:#fbe3e0,stroke:#c0392b,stroke-width:1.5px
+    style AGENT fill:#faedc4,stroke:#a07d1c,stroke-width:1.5px
+
+    classDef actor fill:#f5f5f5,stroke:#555,stroke-width:1.2px
+    class OWNER,HEIR,CUSTODIANS actor

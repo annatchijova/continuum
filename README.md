@@ -224,6 +224,51 @@ legacy/
 └── agent/      owner/heir orchestration, queries, guide, doctor, export
 ```
 
+## Diagrams and screenshots
+
+### Architecture diagram
+
+![Continuum architecture](visual/continuum_architecture_en.png)
+
+Source: [`visual/continuum_architecture_en.mermaid`](visual/continuum_architecture_en.mermaid).
+An earlier iteration of the diagram is kept for reference in
+[`visual/diagrama/`](visual/diagrama).
+
+### Logo
+
+<img src="visual/logo.png" alt="Continuum logo" width="200">
+
+### Studio walkthrough
+
+Screenshots of the local Studio UI, in the order they were captured:
+
+<table>
+<tr>
+<td><img src="visual/studio/Screenshot from 2026-07-20 11-23-32.png" width="260"></td>
+<td><img src="visual/studio/Screenshot from 2026-07-20 11-23-36.png" width="260"></td>
+<td><img src="visual/studio/Screenshot from 2026-07-20 11-23-40.png" width="260"></td>
+</tr>
+<tr>
+<td><img src="visual/studio/Screenshot from 2026-07-20 11-23-47.png" width="260"></td>
+<td><img src="visual/studio/Screenshot from 2026-07-20 11-29-22.png" width="260"></td>
+<td><img src="visual/studio/Screenshot from 2026-07-20 11-29-26.png" width="260"></td>
+</tr>
+<tr>
+<td><img src="visual/studio/Screenshot from 2026-07-20 11-29-47.png" width="260"></td>
+<td><img src="visual/studio/Screenshot from 2026-07-20 11-30-24.png" width="260"></td>
+<td><img src="visual/studio/Screenshot from 2026-07-20 12-38-42.png" width="260"></td>
+</tr>
+<tr>
+<td><img src="visual/studio/Screenshot from 2026-07-20 12-41-39.png" width="260"></td>
+<td><img src="visual/studio/Screenshot from 2026-07-20 15-06-58.png" width="260"></td>
+<td><img src="visual/studio/Screenshot from 2026-07-20 15-19-04.png" width="260"></td>
+</tr>
+</table>
+
+### Rendered diagram preview
+
+<img src="visual/Screenshot from 2026-07-20 17-25-27.png" width="600" alt="Rendered architecture diagram preview">
+
 ## Repository structure
 
 The repository contains the product surface, the deterministic core, the
