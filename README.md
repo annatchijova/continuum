@@ -11,60 +11,22 @@ and for your own life while you're still living it.*
 
 Licensed under the [Apache License 2.0](LICENSE).
 
-## Open the real Studio — copy and paste
+## What Continuum is
 
-Requirements: Git and Python 3.11 or newer.
+Continuum turns a scattered life archive — documents, context, memories, and
+the small details people need in a crisis — into a **private, source-backed
+guide**. It is local-first: the deterministic core encrypts, classifies,
+retrieves, and audits the record before any optional AI narration is involved.
 
-```bash
-git clone https://github.com/olgavasilievaveg-hash/continuum.git
-cd continuum
-python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[agents]'
-./run_studio.sh --workspace .continuum-demo --port 8787
-```
+It has two intentionally different experiences:
 
-Then open **http://127.0.0.1:8787** in your browser. Click **Run a safe
-sample** to explore a fictional local vault immediately: no personal folder,
-API key, or account is required.
+- **Real Studio:** a local encrypted vault for a person and the people they
+  trust. It can be used entirely without an API key or cloud account.
+- **Public evaluator:** a Vercel-hosted copy of the Studio with 40 redacted,
+  deterministic fixtures, so judges can test the flow without receiving a
+  vault or private documents.
 
-### Demo mode — no files to import
-
-After opening the Studio, click **Run a safe sample**. Continuum creates an
-isolated `safe-demo` vault with four fictional records: an apartment deed,
-emergency care plan, family archive, and subscription checklist. Then ask:
-
-```text
-Where is the apartment deed?
-```
-
-To demonstrate the read-only heir route, lock the safe demo and open it as an
-heir with any heir ID and this deliberately public demo passphrase:
-
-```text
-continuum-demo
-```
-
-The safe demo is reset on every run and never replaces a real workspace. The
-public Vercel evaluator below is the larger, preloaded 40-record fixture demo.
-
-To use optional NVIDIA narration after the Studio is running, start it from a
-terminal with your own key:
-
-```bash
-export CONTINUUM_LLM_PROVIDER=nvidia
-export NVIDIA_API_KEY='your-key-here'
-./run_studio.sh --workspace .continuum-demo --port 8787
-```
-
-## Open the public web demo locally
-
-```bash
-cd web-demo
-./serve-web-demo.sh
-```
-
-Then open **http://127.0.0.1:8793**. This is the Vercel-ready, static evaluator
-for judges; it has redacted fixtures and never calls an API.
+**Try the public evaluator:** [continuum-olga-demo.vercel.app](https://continuum-olga-demo.vercel.app/)
 
 ## Where this comes from
 
@@ -154,6 +116,53 @@ changes a source, ranking, access decision, or integrity result.
   access together, while any `K-1` of them learn nothing. Nobody holds the
   whole key alone.
 
+## Open the real Studio — copy and paste
+
+Requirements: Git and Python 3.11 or newer.
+
+```bash
+git clone https://github.com/olgavasilievaveg-hash/continuum.git
+cd continuum
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[agents]'
+./run_studio.sh --workspace .continuum-demo --port 8787
+```
+
+Then open **http://127.0.0.1:8787** in your browser. Click **Run a safe
+sample** to explore a fictional local vault immediately: no personal folder,
+API key, or account is required.
+
+### Demo mode — no files to import
+
+After opening the Studio, click **Run a safe sample**. Continuum creates an
+isolated `safe-demo` vault with four fictional records: an apartment deed,
+emergency care plan, family archive, and subscription checklist. Then ask:
+
+```text
+Where is the apartment deed?
+```
+
+To demonstrate the read-only heir route, lock the safe demo and open it as an
+heir with any heir ID and this deliberately public demo passphrase:
+
+```text
+continuum-demo
+```
+
+The safe demo is reset on every run and never replaces a real workspace. The
+public evaluator above is the larger, preloaded 40-record fixture demo.
+
+### Optional NVIDIA narration
+
+To narrate core-selected sources with your own NVIDIA key, start the Studio
+from a terminal with:
+
+```bash
+export CONTINUUM_LLM_PROVIDER=nvidia
+export NVIDIA_API_KEY='your-key-here'
+./run_studio.sh --workspace .continuum-demo --port 8787
+```
+
 ## The ethical line: AI narrates, it never decides
 
 This is not a slogan; it is an architectural boundary enforced in code and
@@ -174,14 +183,6 @@ tested directly:
 - The audit trail records that narration happened and how many sources were
   involved — never the sensitive question itself, and never the narrated
   text. Privacy holds even in the system's own logbook.
-
-## Try the product
-
-Use the copy-and-paste commands above. The Studio uses no web-framework
-dependency, and **Run a safe sample** creates only fictional data in the
-workspace supplied to `--workspace`. For the full demo script, architecture,
-and narration boundary, see [HACKATHON.md](HACKATHON.md). The original CLI
-remains available below for direct vault management.
 
 ## Public evaluator for judges
 
@@ -363,7 +364,7 @@ storage, a separately testable core, judge-facing presentation surfaces, and
 security regression tests. The browser UI is only the presentation layer; the
 authoritative behavior remains in the `legacy/` core.
 
-## Quickstart
+## Advanced CLI quickstart
 
 ```bash
 pip install -e ".[dev,memory]"   # installs the `legacy` command
