@@ -498,9 +498,9 @@ python -m pytest -q
 - [OpenAI Build Week brief, product flow, and OpenAI/Codex integration](HACKATHON.md)
 - [Judge submission and compliance record](SUBMISSION_COMPLIANCE.md)
 
-## The human legacy
+## Continuum
 
-*Song by [Olga Vasilieva](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925)*
+*Song: [Continuum](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925), by Olga Vasilieva*
 
 **Verse 1**<br>
 A photograph inside her hands,<br>
