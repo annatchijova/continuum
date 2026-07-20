@@ -18,6 +18,12 @@ the small details people need in a crisis — into a **private, source-backed
 guide**. It is local-first: the deterministic core encrypts, classifies,
 retrieves, and audits the record before any optional AI narration is involved.
 
+> **Think of it as a crypto wallet for the documents that matter.** AES-GCM
+> seals the vault, a SHA-256 audit chain makes meaningful changes verifiable,
+> and Shamir shares let trusted people recover access together. The
+> deterministic core decides evidence and access; optional AI may explain
+> selected sources, but it never gets to decide anything.
+
 It has two intentionally different experiences:
 
 - **Real Studio:** a local encrypted vault for a person and the people they
