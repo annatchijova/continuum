@@ -130,6 +130,24 @@ demo script, architecture, and OpenAI integration boundary, see
 The Studio uses no web-framework dependency. The original CLI remains fully
 available below for direct vault management.
 
+## Public evaluator for judges
+
+The [`web-demo/`](web-demo) directory is a deployable static copy of the
+Studio interface. It starts with 40 curated, redacted fixtures and lets a
+judge exercise creation, 3-of-5 recovery, owner/heir boundaries, integrity,
+and deterministic question scenarios without cloning or running a vault.
+
+Deploy **only** that directory to Vercel:
+
+```bash
+cd web-demo
+npx vercel --prod
+```
+
+It makes no API or model calls and never includes a real vault, corpus,
+credential, recovery share, or API key. The local Studio above remains the
+real encrypted product path.
+
 Studio has separate owner and heir entry points. Heir access delegates to the
 existing policy-aware core path and is intentionally read-only in the UI.
 When creating a Studio workspace, the owner must explicitly choose an heir
