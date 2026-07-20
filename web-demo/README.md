@@ -16,6 +16,14 @@ npx vercel --prod
 No framework, build step, environment variable, or API key is required. The
 project root must be this `web-demo` directory.
 
+## Run locally
+
+```bash
+./serve-web-demo.sh
+```
+
+Open `http://127.0.0.1:8793`.
+
 ## What judges can test
 
 - Needle retrieval with a redacted credential reference.

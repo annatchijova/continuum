@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="visual/logo.png" alt="Continuum logo" width="200">
+  <img src="visual/logo.png" alt="Continuum logo" width="100%">
 </p>
 
 <h1 align="center">Continuum</h1>
@@ -12,6 +12,41 @@ and for your own life while you're still living it.*
 Licensed under the [Apache License 2.0](LICENSE).
 
 ![Continuum Studio](https://img.shields.io/badge/status-hackathon%20prototype-173e3c)
+
+## Open the real Studio — copy and paste
+
+Requirements: Git and Python 3.11 or newer.
+
+```bash
+git clone https://github.com/olgavasilievaveg-hash/continuum.git
+cd continuum
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[agents]'
+./run_studio.sh --workspace .continuum-demo --port 8787
+```
+
+Then open **http://127.0.0.1:8787** in your browser. Click **Run a safe
+sample** to explore a fictional local vault immediately: no personal folder,
+API key, or account is required.
+
+To use optional NVIDIA narration after the Studio is running, start it from a
+terminal with your own key:
+
+```bash
+export CONTINUUM_LLM_PROVIDER=nvidia
+export NVIDIA_API_KEY='your-key-here'
+./run_studio.sh --workspace .continuum-demo --port 8787
+```
+
+## Open the public web demo locally
+
+```bash
+cd web-demo
+./serve-web-demo.sh
+```
+
+Then open **http://127.0.0.1:8793**. This is the Vercel-ready, static evaluator
+for judges; it has redacted fixtures and never calls an API.
 
 ## Where this comes from
 
@@ -124,17 +159,11 @@ tested directly:
 
 ## Try the product
 
-```bash
-python3 -m continuum_web.server --workspace .continuum-demo
-```
-
-Open `http://127.0.0.1:8787`, then choose **Explore a safe demo**. This creates
-only fictional data in the workspace supplied to `--workspace`. For the full
-demo script, architecture, and OpenAI integration boundary, see
-[HACKATHON.md](HACKATHON.md).
-
-The Studio uses no web-framework dependency. The original CLI remains fully
-available below for direct vault management.
+Use the copy-and-paste commands above. The Studio uses no web-framework
+dependency, and **Run a safe sample** creates only fictional data in the
+workspace supplied to `--workspace`. For the full demo script, architecture,
+and narration boundary, see [HACKATHON.md](HACKATHON.md). The original CLI
+remains available below for direct vault management.
 
 ## Public evaluator for judges
 
@@ -143,7 +172,9 @@ Studio interface. It starts with 40 curated, redacted fixtures and lets a
 judge exercise creation, 3-of-5 recovery, owner/heir boundaries, integrity,
 and deterministic question scenarios without cloning or running a vault.
 
-Deploy **only** that directory to Vercel:
+Live demo: **[continuum-olga-demo.vercel.app](https://continuum-olga-demo.vercel.app/)**
+
+To deploy it yourself, select `web-demo` as the Vercel Root Directory, or run:
 
 ```bash
 cd web-demo
