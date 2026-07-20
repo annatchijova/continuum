@@ -159,10 +159,23 @@ continuum-demo
 The safe demo is reset on every run and never replaces a real workspace. The
 public evaluator above is the larger, preloaded 40-record fixture demo.
 
-### Optional NVIDIA narration
+### Optional AI narration
 
-To narrate core-selected sources with your own NVIDIA key, start the Studio
-from a terminal with:
+The Studio works completely without an API key. For the optional OpenAI
+narration layer — the hackathon integration — set your key before starting the
+Studio:
+
+```bash
+export CONTINUUM_LLM_PROVIDER=openai
+export OPENAI_API_KEY='your-key-here'
+./run_studio.sh --workspace .continuum-demo --port 8787
+```
+
+OpenAI receives only the excerpts the deterministic core already selected,
+and only after the person ticks the consent control in **Ask Continuum**.
+
+NVIDIA is an optional OpenAI-compatible alternative for a local demo or a
+different account:
 
 ```bash
 export CONTINUUM_LLM_PROVIDER=nvidia
@@ -224,40 +237,6 @@ New Studio workspaces enable the core's `memory.db` encryption before the first
 capture and archive each captured text in the encrypted artifact store. Existing
 vaults retain their current configuration; use `legacy encrypt-db` to migrate
 an older vault deliberately.
-
-## Optional ChatGPT narration
-
-Set `OPENAI_API_KEY` and install the optional Agents SDK to enable GPT-5.6
-narration over locally retrieved evidence. A person must also explicitly tick
-the consent control in the UI. The core determines retrieval and access, while
-the agent only explains the sources already selected; the narration request is
-stateless and disables SDK tracing.
-
-```bash
-export OPENAI_API_KEY='...'
-pip install -e '.[agents]'
-python3 -m continuum_web.server
-```
-
-### NVIDIA alternative
-
-Continuum can use NVIDIA's OpenAI-compatible inference endpoint instead of an
-OpenAI key. Keep the key in the terminal environment, never in the browser:
-
-```bash
-export CONTINUUM_LLM_PROVIDER=nvidia
-export NVIDIA_API_KEY='...'
-# Optional. run_studio.sh defaults to this broadly available model; override it
-# only with a model enabled for your NVIDIA account.
-export CONTINUUM_NVIDIA_MODEL='meta/llama-3.1-8b-instruct'
-./run_studio.sh
-```
-
-The Studio's **Ask Continuum** field remains the only conversation surface.
-After the deterministic core selects sources, explicitly tick the narration
-consent checkbox to send only those excerpts to the configured provider. NVIDIA
-uses its stateless OpenAI-compatible Chat Completions endpoint directly, with a
-45-second request limit; it does not use the OpenAI Agents SDK.
 
 ## Design principles
 
