@@ -200,6 +200,6 @@ recovery during `rekey`.
 
 ## [0.1.0] — 2026-07-06
 
-Initial post-hackathon release: AES-256-GCM vault, dual SHA-256/HMAC audit
+Initial release: AES-256-GCM vault, dual SHA-256/HMAC audit
 chain, deterministic classifier, TF-IDF + STDP memory field, FTS5 knowledge
 base, query engine, CLI, and standalone verifier.
