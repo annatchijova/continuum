@@ -25,6 +25,7 @@ htmlcov/
 *.db
 *.db-wal
 *.db-shm
+*.lock
 
 # Local Vercel deploy staging copy for the static briefing/preview pages
 vercel-judges-preview/
