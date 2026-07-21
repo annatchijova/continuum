@@ -533,3 +533,24 @@ A life can change.<br>
 A memory can fade.<br>
 But every story<br>
 can remain.
+
+## Continuum visual story
+
+<table>
+<tr>
+<td><img src="visual/slide-1.png" width="460" alt="Continuum visual story, slide 1"></td>
+<td><img src="visual/slide-2.png" width="460" alt="Continuum visual story, slide 2"></td>
+</tr>
+<tr>
+<td><img src="visual/slide-3.png" width="460" alt="Continuum visual story, slide 3"></td>
+<td><img src="visual/slide-4.png" width="460" alt="Continuum visual story, slide 4"></td>
+</tr>
+<tr>
+<td><img src="visual/slide-5.png" width="460" alt="Continuum visual story, slide 5"></td>
+<td><img src="visual/slide-6.png" width="460" alt="Continuum visual story, slide 6"></td>
+</tr>
+<tr>
+<td><img src="visual/slide-7.png" width="460" alt="Continuum visual story, slide 7"></td>
+<td><img src="visual/slide-8.png" width="460" alt="Continuum visual story, slide 8"></td>
+</tr>
+</table>
