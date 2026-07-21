@@ -14,6 +14,14 @@ a verifiable history with a calm conversational interface.
   <img src="visual/1.png" width="520" alt="Continuum: a protected continuum of personal memory">
 </p>
 
+## Submission links
+
+- **Demo video:** https://www.youtube.com/watch?v=Km_b6Apw_ak
+- **Public repository:** https://github.com/olgavasilievaveg-hash/continuum
+- **Apache License 2.0:** [`LICENSE`](LICENSE)
+- **Static Vercel preview:** https://continuum-olga-demo.vercel.app/
+- **Song — Continuum:** https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925
+
 ## Where this comes from
 
 Continuum is built and maintained by Olga Vasilieva. It began as a fork of
@@ -39,6 +47,61 @@ education, and everyday life.
    read-only experience. The fictional demo's 90-day inactivity condition is
    intentionally pre-satisfied; real Studio workspaces start their selected
    inactivity clock at creation.
+
+<p align="center">
+  <img src="visual/semillas.png" width="680" alt="Continuum recovery shares shown once for trusted custodians">
+</p>
+
+The recovery screen shows five Shamir shares. Any three can reset the vault
+passphrase; Continuum does not store the shares after this one-time display.
+
+## Three ways for judges to evaluate Continuum
+
+### 1. Open the static Vercel preview
+
+Visit https://continuum-olga-demo.vercel.app/. This is the fastest way to see
+the visual language and the intended Studio flow without cloning anything. It
+is a static, deploy-safe presentation with curated synthetic fixtures: it does
+not open a vault, import files, call an AI provider, or execute the real local
+product. It is for seeing how Continuum looks and how the deterministic answer
+surface is presented.
+
+### 2. Clone the repository and run the prepared synthetic demo
+
+The repository includes prepared, encrypted synthetic demo fixtures. No
+personal files need to be imported:
+
+```bash
+git clone https://github.com/olgavasilievaveg-hash/continuum.git
+cd continuum
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[agents]'
+./run_studio.sh --workspace .continuum-demo --port 8787
+```
+
+Open the local address printed by the terminal and choose **Run a safe sample**.
+This refreshes the isolated `safe-demo/` child inside the included workspace
+and gives judges a fictional apartment deed, emergency care plan, family
+archive, and subscription checklist to query. The public demo passphrase for
+the read-only heir path is `continuum-demo`. No API key is required.
+
+### 3. Run the full end-to-end Studio with your own files
+
+Use a separate workspace so the prepared fixtures remain untouched:
+
+```bash
+./run_studio.sh --workspace ./my-continuum-workspace --port 8787
+```
+
+Create the owner, save the five recovery shares, capture records, lock and
+reopen the vault, test owner/heir boundaries, and query the resulting evidence.
+The browser Studio accepts local `.txt`, `.md`, `.csv`, and `.json` files. It
+supports selecting many files, adding multiple selections, choosing an entire
+folder, or dragging a folder into the batch queue. Each supported text file is
+reviewed locally and sealed one at a time; the current per-file browser limit
+is 256 KiB. Binary files and PDFs can be ingested through the existing CLI
+path. The core works without an API key; OpenAI narration is an explicit,
+per-question opt-in layer.
 
 ## How OpenAI and Codex fit
 
@@ -99,29 +162,6 @@ propose bounded changes, write and run tests, and iteratively improve the
 product experience. The human owner reviewed scope and retained authority over
 the product's security, privacy, and ethical boundaries. The git history and
 the tests provide an inspectable record of that collaboration.
-
-## Run locally
-
-```bash
-cd /home/labestiadevigia/continuum
-python3 -m continuum_web.server --workspace .continuum-demo
-```
-
-Open `http://127.0.0.1:8787` and click **Explore a safe demo**. The demo resets
-only the `safe-demo/` child inside the workspace supplied through `--workspace`;
-it does not replace the selected workspace or a real vault.
-
-For optional GPT-5.6 narration:
-
-```bash
-export OPENAI_API_KEY='...'
-pip install -e '.[agents]'
-export CONTINUUM_OPENAI_MODEL='gpt-5.6'  # this is the default
-python3 -m continuum_web.server --workspace .continuum-demo
-```
-
-Without an API key, the entire product demo remains functional using the
-deterministic core.
 
 ## Verification
 
