@@ -149,8 +149,7 @@ public evaluator above is the larger, preloaded 40-record fixture demo.
 ### Optional AI narration
 
 The Studio works completely without an API key. For the optional OpenAI
-narration layer — the hackathon integration — set your key before starting the
-Studio:
+narration layer, set your key before starting the Studio:
 
 ```bash
 export CONTINUUM_LLM_PROVIDER=openai
@@ -304,7 +303,6 @@ continuum/
 │   ├── test_memory*.py            retrieval, memory, and DB encryption coverage
 │   └── test_*.py                  audit, custody, export, policy, and Studio tests
 ├── vercel-judges-preview/         static judge-facing preview
-├── HACKATHON.md                   submission architecture and live demo flow
 ├── KNOWN_LIMITATIONS.md           explicit design limits and trust boundaries
 ├── STRESS_TEST.md                 owner-data testing protocol and safety boundary
 ├── stress-oracle.template.md      private evaluation template
@@ -463,9 +461,8 @@ python -m pytest -q
 | `LEGACY_HMAC_KEY` | Hex HMAC key for the audit trail (recommended: at least 32 bytes) |
 | `LEGACY_HMAC_KEY_FILE` | Alternative path to a file containing the key bytes |
 
-## Hackathon materials
+## Submission materials
 
-- [OpenAI Build Week brief, product flow, and OpenAI/Codex integration](HACKATHON.md)
 - [Judge submission and compliance record](SUBMISSION_COMPLIANCE.md)
 
 ## Continuum

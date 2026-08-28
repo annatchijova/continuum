@@ -2,7 +2,7 @@
 
 ## Scope
 
-Continuum is the hackathon evolution of the Digital Legacy prototype. The
+Continuum is the evolution of the Digital Legacy prototype. The
 prototype is the current technical baseline; product naming and code-module
 renaming will happen in later migration steps.
 

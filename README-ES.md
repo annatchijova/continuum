@@ -141,8 +141,7 @@ Los espacios nuevos activan el cifrado de memory.db antes de la primera captura 
 ### Narración opcional con IA
 
 El Studio funciona completamente sin una clave de API. Para activar la capa
-opcional de narración de OpenAI —la integración del hackathon— configurá la
-clave antes de iniciarlo:
+opcional de narración de OpenAI, configurá la clave antes de iniciarlo:
 
 ```bash
 export CONTINUUM_LLM_PROVIDER=openai
@@ -195,7 +194,6 @@ continuum/
 │   ├── test_memory*.py            recuperación, memoria y cifrado de DB
 │   └── test_*.py                  auditoría, custodia, exportación, políticas y Studio
 ├── vercel-judges-preview/         preview estático para jueces
-├── HACKATHON.md                   arquitectura de la entrega y flujo de demo
 ├── KNOWN_LIMITATIONS.md           límites explícitos y fronteras de confianza
 ├── STRESS_TEST.md                 protocolo seguro para probar datos del dueño
 ├── stress-oracle.template.md      plantilla de evaluación privada
@@ -302,9 +300,8 @@ python -m pytest -q
 | LEGACY_HMAC_KEY | Clave HMAC hexadecimal para el registro (se recomiendan al menos 32 bytes) |
 | LEGACY_HMAC_KEY_FILE | Ruta a un archivo que contiene los bytes de la clave |
 
-## Materiales del hackathon
+## Materiales de la entrega
 
-- [Brief de OpenAI Build Week, flujo del producto e integración de OpenAI/Codex](HACKATHON.md)
 - [Registro de entrega y cumplimiento para jueces](SUBMISSION_COMPLIANCE.md)
 
 ## Continuum
