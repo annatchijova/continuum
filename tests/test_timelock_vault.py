@@ -115,9 +115,9 @@ def test_agent_timelock_recovery_reads_everything(tmp_path):
     a.lock("pw")
 
     rec = LegacyAgent(tmp_path / "data", "anna")
-    rec.recover_with_timelock(actor="olga")            # without a passphrase
+    rec.recover_with_timelock(actor="owner")           # without a passphrase
     assert rec._index.owner_id == "anna"
-    assert len(rec.query("will inheritance", actor="olga")) >= 1   # encrypted memory is readable
+    assert len(rec.query("will inheritance", actor="owner")) >= 1  # encrypted memory is readable
     assert "VAULT_RECOVERED_TIMELOCK" in [
         e["event_type"] for e in rec._audit.events()
     ]
@@ -134,7 +134,7 @@ def test_agent_timelock_survives_rekey(tmp_path):
     b.lock("new")
 
     rec = LegacyAgent(tmp_path / "data", "anna")
-    rec.recover_with_timelock(actor="olga")
+    rec.recover_with_timelock(actor="owner")
     assert rec._index.owner_id == "anna"
 
 
@@ -147,7 +147,7 @@ def test_agent_set_passphrase_from_timelock(tmp_path):
     a.lock("old")
 
     heir = LegacyAgent(tmp_path / "data", "anna")
-    heir.set_passphrase_from_timelock("inherited", actor="olga")
+    heir.set_passphrase_from_timelock("inherited", actor="owner")
     assert heir._index.owner_id == "anna"
 
     final = LegacyAgent(tmp_path / "data", "anna")

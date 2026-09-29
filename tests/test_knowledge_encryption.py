@@ -22,7 +22,7 @@ from legacy.agent.memory_agent import LegacyAgent
 KEY = secrets.token_bytes(32)
 TXT = ("Protocol of treatment for patients with arterial hypertension diagnosis: "
        "clinical follow-up and dosage adjustment. Marker zzyzx plugh.")
-SRC = "/home/olga/confidential_clinical_history.txt"
+SRC = "/home/owner/confidential_clinical_history.txt"
 
 
 def _blob(tmp_path, glob="k.db*") -> bytes:
@@ -129,7 +129,7 @@ def test_heir_reads_encrypted_knowledge_after_recovery(tmp_path):
     a.lock("pw")
 
     heir = LegacyAgent(tmp_path / "data", "anna")
-    heir.set_passphrase_from_recovery(shares[:2], "heir-pass", actor="olga")
+    heir.set_passphrase_from_recovery(shares[:2], "heir-pass", actor="owner")
     assert heir.knowledge.search("treatment zzyzx")
 
 

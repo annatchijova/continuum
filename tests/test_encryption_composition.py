@@ -41,8 +41,8 @@ def test_heir_reads_encrypted_memory_after_custodian_recovery(tmp_path):
     a.lock("pw")
 
     heir = LegacyAgent(tmp_path / "data", "anna")
-    heir.set_passphrase_from_recovery(shares[:2], "heir-pass", actor="olga")
-    res = heir.query("will inheritance", actor="olga")
+    heir.set_passphrase_from_recovery(shares[:2], "heir-pass", actor="owner")
+    res = heir.query("will inheritance", actor="owner")
     assert len(res) >= 1
     assert "will" in res[0].content
 
@@ -51,7 +51,7 @@ def test_heir_reads_encrypted_memory_via_policy(tmp_path):
     """Invariant: an heir admitted by policy (open_heir) reads encrypted
     memory. This catches removing _apply_db_key() from the granted branch."""
     a = _agent_encrypted(tmp_path)
-    a.add_heir("h1", "Olga")
+    a.add_heir("h1", "Owner")
     key = a.register_heir_key("h1")
     a.lock("pw")
 

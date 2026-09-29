@@ -16,7 +16,7 @@ PASS = "pw"
 def test_revoked_heir_denied_even_with_valid_key(tmp_path):
     agent = LegacyAgent(tmp_path, "owner")
     agent.initialize(PASS)
-    agent.add_heir("h1", "Olga")
+    agent.add_heir("h1", "Primary heir")
     secret = agent.register_heir_key("h1")
     assert agent.revoke_heir("h1") is True
     agent.lock(PASS)
@@ -30,7 +30,7 @@ def test_revoked_heir_denied_even_with_valid_key(tmp_path):
 def test_revoke_removes_key_condition_but_keeps_history(tmp_path):
     agent = LegacyAgent(tmp_path, "owner")
     agent.initialize(PASS)
-    agent.add_heir("h1", "Olga")
+    agent.add_heir("h1", "Owner")
     agent.register_heir_key("h1")
     agent.revoke_heir("h1")
 
@@ -46,7 +46,7 @@ def test_revoke_removes_key_condition_but_keeps_history(tmp_path):
 def test_other_heirs_unaffected_by_revocation(tmp_path):
     agent = LegacyAgent(tmp_path, "owner")
     agent.initialize(PASS)
-    agent.add_heir("h1", "Olga")
+    agent.add_heir("h1", "Owner")
     agent.add_heir("h2", "Maria")
     s1 = agent.register_heir_key("h1")
     s2 = agent.register_heir_key("h2")
@@ -68,13 +68,13 @@ def test_revoke_unknown_heir_returns_false(tmp_path):
 def test_revoked_heir_excluded_from_summary_and_guide(tmp_path):
     agent = LegacyAgent(tmp_path, "owner")
     agent.initialize(PASS)
-    agent.add_heir("h1", "Olga")
+    agent.add_heir("h1", "Owner")
     agent.add_heir("h2", "Maria")
     agent.revoke_heir("h1")
 
     assert agent.summary("owner")["heirs"] == ["Maria"]
     guide = agent.heir_guide(actor="owner")
-    assert "Maria" in guide and "Olga" not in guide
+    assert "Maria" in guide and "Primary heir" not in guide
 
 
 def test_ingest_with_knowledge_extraction(tmp_path):

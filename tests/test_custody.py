@@ -30,7 +30,7 @@ def agent(tmp_path):
                    encoding="utf-8")
     a.ingest(src)
     a.archive_artifact(src, PASS)
-    a.add_heir("olga", "Olga")
+    a.add_heir("owner", "Owner")
     return a
 
 
@@ -86,12 +86,12 @@ def test_full_inheritance_flow(agent, tmp_path):
     heirs.set_passphrase_from_recovery(
         [shares[4], shares[0], shares[2]],       # any three custodians
         "passphrase-of-the-heirs",
-        actor="olga",
+        actor="owner",
     )
     # The recovered agent has the original owner identity.
     assert heirs._index.owner_id == "anna"
     dest = tmp_path / "restored_will.txt"
-    heirs.restore_artifact(artifact_hash, dest, actor="olga")
+    heirs.restore_artifact(artifact_hash, dest, actor="owner")
     assert "last wishes" in dest.read_text(encoding="utf-8")
 
     # Recovery and restoration must both be audited.
@@ -111,7 +111,7 @@ def test_recover_opens_readonly_without_setting_passphrase(agent, tmp_path):
     agent.lock(PASS)
 
     rec = LegacyAgent(tmp_path / "data", "anna")
-    rec.recover_with_shares(shares[:2], actor="olga")
+    rec.recover_with_shares(shares[:2], actor="owner")
     assert rec._unlocked and rec._index.owner_id == "anna"
     assert "VAULT_RECOVERED" in [e["event_type"] for e in rec._audit.events()]
     # Old shares must be invalid after reconfiguration.
@@ -124,7 +124,7 @@ def test_insufficient_shares_fail(agent, tmp_path):
     agent.lock(PASS)
     rec = LegacyAgent(tmp_path / "data", "anna")
     with pytest.raises(ShamirError):
-        rec.recover_with_shares(shares[:2], actor="olga")
+        rec.recover_with_shares(shares[:2], actor="owner")
 
 
 def test_resetup_revokes_old_custodians(agent, tmp_path):
@@ -145,7 +145,7 @@ def test_remove_custody(agent, tmp_path):
 
     rec = LegacyAgent(tmp_path / "data", "anna")
     with pytest.raises(VaultAuthError):
-        rec.recover_with_shares(shares[:2], actor="olga")
+        rec.recover_with_shares(shares[:2], actor="owner")
 
 
 def test_recovery_denied_events_are_audited(agent, tmp_path):

@@ -32,7 +32,7 @@ It has two intentionally different experiences:
   deterministic fixtures, so judges can test the flow without receiving a
   vault or private documents.
 
-**Try the public evaluator:** [continuum-olga-demo.vercel.app](https://continuum-olga-demo.vercel.app/)
+**Try the evaluator:** open the local static evaluator at `continuum_web/static/judges.html`.
 
 ## Who Continuum is for
 
@@ -114,7 +114,7 @@ changes a source, ranking, access decision, or integrity result.
 Requirements: Git and Python 3.11 or newer.
 
 ```bash
-git clone https://github.com/olgavasilievaveg-hash/continuum.git
+git clone https://github.com/annatchijova/continuum.git
 cd continuum
 python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[agents]'
@@ -124,7 +124,8 @@ python3 -m venv .venv
 The terminal prints the local Studio address when it starts. Click **Run a
 safe sample** to explore a fictional local vault immediately: no personal
 folder, API key, or account is required. For the ready-to-explore public
-fixture with evaluator questions, use the **[Vercel demo](https://continuum-olga-demo.vercel.app/)** above.
+fixture with evaluator questions, use the local evaluator at
+`continuum_web/static/judges.html`.
 
 ### Demo mode — no files to import
 
@@ -197,7 +198,7 @@ Studio interface. It starts with 40 curated, redacted fixtures and lets a
 judge exercise creation, 3-of-5 recovery, owner/heir boundaries, integrity,
 and deterministic question scenarios without cloning or running a vault.
 
-Live demo: **[continuum-olga-demo.vercel.app](https://continuum-olga-demo.vercel.app/)**
+The static evaluator is available at `continuum_web/static/judges.html`.
 
 To deploy it yourself, select `web-demo` as the Vercel Root Directory, or run:
 
@@ -368,7 +369,7 @@ legacy custody setup --shares 5 --threshold 3
 legacy custody status
 
 # Recover using hidden interactive share prompts
-legacy custody recover --set-passphrase --actor olga
+legacy custody recover --set-passphrase --actor owner
 ```
 
 Passphrase rotation (`rekey`) does not invalidate shares: vault v2 uses
@@ -380,7 +381,7 @@ An optional offline time-lock puzzle provides a third recovery path:
 ```bash
 legacy custody calibrate --days 30
 legacy custody timelock-setup --squarings 260000000000
-legacy custody timelock-recover --set-passphrase --actor olga
+legacy custody timelock-recover --set-passphrase --actor owner
 ```
 
 The time-lock imposes a sequential computational work floor, not a wall-clock
@@ -467,7 +468,7 @@ python -m pytest -q
 
 ## Continuum
 
-*Song: [Continuum](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925), by Olga Vasilieva*
+*Song: [Continuum](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925)*
 
 **Verse 1**<br>
 A photograph inside her hands,<br>

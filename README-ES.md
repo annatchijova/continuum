@@ -34,7 +34,8 @@ Tiene dos experiencias deliberadamente distintas:
   deterministas y redactados, para que jueces prueben el flujo sin recibir una
   bóveda ni documentos privados.
 
-**Probá el evaluador público:** [continuum-olga-demo.vercel.app](https://continuum-olga-demo.vercel.app/)
+**Probá el evaluador:** abrí el evaluador estático local en
+`continuum_web/static/judges.html`.
 
 ## Para quién es Continuum
 
@@ -97,7 +98,7 @@ No es un eslogan: es un límite arquitectónico aplicado en el código y probado
 Requisitos: Git y Python 3.11 o posterior.
 
 ```bash
-git clone https://github.com/olgavasilievaveg-hash/continuum.git
+git clone https://github.com/annatchijova/continuum.git
 cd continuum
 python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[agents]'
@@ -107,7 +108,8 @@ python3 -m venv .venv
 La terminal muestra la dirección local cuando inicia. Elegí **Run a safe
 sample** para explorar una bóveda ficticia inmediatamente: no requiere carpeta
 personal, clave de API ni cuenta. Para la versión pública lista, con fixtures y
-preguntas para evaluación, usá la [demo de Vercel](https://continuum-olga-demo.vercel.app/).
+preguntas para evaluación, usá el evaluador local en
+`continuum_web/static/judges.html`.
 
 ### Modo demo — sin importar archivos
 
@@ -235,7 +237,7 @@ El escenario central es que la frase de contraseña muera con el propietario. Sh
 ~~~bash
 legacy custody setup --shares 5 --threshold 3
 legacy custody status
-legacy custody recover --set-passphrase --actor olga
+legacy custody recover --set-passphrase --actor owner
 ~~~
 
 Rotar la frase de contraseña (rekey) no invalida las partes: la bóveda v2 usa compartimentos de claves independientes. Volver a ejecutar custody setup sí revoca el conjunto anterior.
@@ -245,7 +247,7 @@ Un rompecabezas opcional de bloqueo temporal sin conexión ofrece una tercera v�
 ~~~bash
 legacy custody calibrate --days 30
 legacy custody timelock-setup --squarings 260000000000
-legacy custody timelock-recover --set-passphrase --actor olga
+legacy custody timelock-recover --set-passphrase --actor owner
 ~~~
 
 El bloqueo temporal impone un mínimo de trabajo computacional secuencial, no una fecha de calendario. Consulta KNOWN_LIMITATIONS.md antes de confiar en él.
@@ -306,7 +308,7 @@ python -m pytest -q
 
 ## Continuum
 
-*Canción: [Continuum](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925), de Olga Vasilieva*
+*Canción: [Continuum](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925)*
 
 **Verso 1**<br>
 Una fotografía entre sus manos,<br>

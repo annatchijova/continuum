@@ -111,9 +111,9 @@ def test_h4_heirs_lock_after_recovery_preserves_custody(tmp_path):
     a.lock(PASS)
 
     heirs = LegacyAgent(tmp_path / "data", "anna")
-    heirs.set_passphrase_from_recovery(shares[:2], "pw-heirs", actor="olga")
+    heirs.set_passphrase_from_recovery(shares[:2], "pw-heirs", actor="owner")
     heirs.lock("pw-heirs")
 
     assert heirs._vault.has_recovery_slot()
     again = LegacyAgent(tmp_path / "data", "anna")
-    again.recover_with_shares(shares[1:], actor="olga")
+    again.recover_with_shares(shares[1:], actor="owner")

@@ -133,7 +133,7 @@ def test_static_deployment_previews_are_bilingual_and_make_no_api_requests():
     assert 'href="/styles.css"' in product
     assert 'id="languageToggle"' in product
     assert 'data-en="Static preview · no personal data"' in product
-    assert "Olga." in product
+    assert "Owner." in product
     assert "Anna." not in product
     assert "fetch(" not in product + product_script
     assert 'href="/judges.css"' in briefing

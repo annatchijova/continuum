@@ -85,7 +85,7 @@ def test_rekey_audits_without_leaking_secrets(agent):
 
 def test_heir_key_survives_rekey(agent, tmp_path):
     """the keys of heirs are independientes of the passphrase."""
-    agent.add_heir("h1", "Olga")
+    agent.add_heir("h1", "Owner")
     secret = agent.register_heir_key("h1")
     agent.lock(OLD)
 

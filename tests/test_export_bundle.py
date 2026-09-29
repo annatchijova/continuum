@@ -32,7 +32,7 @@ def agent(tmp_path):
     src.write_text("will and last wishes before the notary", encoding="utf-8")
     a.ingest(src)
     a.archive_artifact(src, PASS)
-    a.add_heir("h1", "Olga")
+    a.add_heir("h1", "Owner")
     return a
 
 

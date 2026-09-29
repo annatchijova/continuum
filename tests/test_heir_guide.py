@@ -38,7 +38,7 @@ _INDEX = {
             "tags": [], "notes": "",
         },
     ],
-    "heirs": [{"heir_id": "h1", "display_name": "Olga", "email": ""}],
+    "heirs": [{"heir_id": "h1", "display_name": "Owner", "email": ""}],
     "policy": None,
     "notes": "",
 }
@@ -63,7 +63,7 @@ def test_guide_content_fields():
     assert "will.pdf" in guide
     assert "original at the notary office" in guide  # owner note
     assert "urgent" in guide                         # tags
-    assert "Olga" in guide                            # heirs
+    assert "Owner" in guide                           # heirs
     assert "verify_legacy.py" in guide                # verification instructions
     assert ("a" * 16) + "…" in guide                  # truncated hash
 

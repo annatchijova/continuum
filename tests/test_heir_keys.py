@@ -24,7 +24,7 @@ PASS = "pw"
 def test_register_key_grants_access_with_correct_key(tmp_path):
     agent = LegacyAgent(tmp_path, "owner")
     agent.initialize(PASS)
-    agent.add_heir("h1", "Olga")
+    agent.add_heir("h1", "Owner")
     secret = agent.register_heir_key("h1")
     agent.lock(PASS)
 
