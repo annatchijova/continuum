@@ -8,8 +8,6 @@
 
 *Una memoria privada y verificable criptográficamente, para las personas que amas y para tu propia vida mientras aún la estás viviendo.*
 
-Licenciado bajo la [Licencia Apache 2.0](LICENSE).
-
 ## Qué es Continuum
 
 Continuum convierte un archivo de vida disperso —documentos, contexto,
@@ -30,12 +28,12 @@ Tiene dos experiencias deliberadamente distintas:
 - **Studio real:** una bóveda local cifrada para una persona y quienes elija
   como personas de confianza. Puede usarse por completo sin API ni cuenta en
   la nube.
-- **Evaluador público:** una copia del Studio en Vercel con 40 fixtures
-  deterministas y redactados, para que jueces prueben el flujo sin recibir una
+- **Evaluador público:** una copia estática del Studio con 40 fixtures
+  deterministas y redactados, para que cualquiera pruebe el flujo sin recibir una
   bóveda ni documentos privados.
 
 **Probá el evaluador:** abrí el evaluador estático local en
-`continuum_web/static/judges.html`.
+`continuum_web/static/briefing.html`.
 
 ## Para quién es Continuum
 
@@ -109,7 +107,7 @@ La terminal muestra la dirección local cuando inicia. Elegí **Run a safe
 sample** para explorar una bóveda ficticia inmediatamente: no requiere carpeta
 personal, clave de API ni cuenta. Para la versión pública lista, con fixtures y
 preguntas para evaluación, usá el evaluador local en
-`continuum_web/static/judges.html`.
+`continuum_web/static/briefing.html`.
 
 ### Modo demo — sin importar archivos
 
@@ -180,7 +178,7 @@ continuum/
 ├── continuum_web/                 Studio local y presentación en el navegador
 │   ├── server.py                  servidor loopback y coordinador de sesiones
 │   ├── narrator.py                límite opcional y acotado de narración GPT-5.6
-│   └── static/                    interfaces de dueño, heredero, español y jueces
+│   └── static/                    interfaces de dueño, heredero, español y evaluación
 ├── legacy/                        núcleo determinista del producto
 │   ├── agent/                     consultas, agente de memoria, guía, exportación, doctor
 │   ├── core/                      auditoría, canonicalización, cifrado de DB,
@@ -195,7 +193,7 @@ continuum/
 │   ├── test_vault*.py             cobertura de bóveda y cifrado
 │   ├── test_memory*.py            recuperación, memoria y cifrado de DB
 │   └── test_*.py                  auditoría, custodia, exportación, políticas y Studio
-├── vercel-judges-preview/         preview estático para jueces
+├── web-demo/                      preview estático del evaluador
 ├── KNOWN_LIMITATIONS.md           límites explícitos y fronteras de confianza
 ├── STRESS_TEST.md                 protocolo seguro para probar datos del dueño
 ├── stress-oracle.template.md      plantilla de evaluación privada
@@ -208,7 +206,7 @@ continuum/
 
 Es un paquete Python funcional con CLI, aplicación web local, almacenamiento
 cifrado, un núcleo comprobable por separado, superficies de presentación para
-jueces y regresiones de seguridad. La interfaz del navegador es solo la capa de
+producto y regresiones de seguridad. La interfaz del navegador es solo la capa de
 presentación; el comportamiento autoritativo permanece en el núcleo legacy.
 
 ## Inicio rápido
@@ -301,10 +299,6 @@ python -m pytest -q
 | LEGACY_OWNER_ID | Identificador del propietario |
 | LEGACY_HMAC_KEY | Clave HMAC hexadecimal para el registro (se recomiendan al menos 32 bytes) |
 | LEGACY_HMAC_KEY_FILE | Ruta a un archivo que contiene los bytes de la clave |
-
-## Materiales de la entrega
-
-- [Registro de entrega y cumplimiento para jueces](SUBMISSION_COMPLIANCE.md)
 
 ## Continuum
 

@@ -38,7 +38,7 @@ python3 -m continuum_web.server --workspace ~/continuum-anna-stress/vault
 ```
 
 Open `http://127.0.0.1:8787`. This is a local server only; it is not the
-static preview used for judges.
+static product preview.
 
 Create a workspace with a strong passphrase and an explicit heir-release
 policy. The Studio enables database-at-rest encryption before its first

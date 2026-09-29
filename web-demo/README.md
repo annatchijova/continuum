@@ -1,6 +1,6 @@
 # Continuum public evaluation build
 
-Static, zero-backend evaluator for judges. It demonstrates deterministic,
+Static, zero-backend evaluator. It demonstrates deterministic,
 source-backed outcomes using curated synthetic fixtures. It intentionally does
 **not** publish a source corpus, vault,
 credentials, recovery shares, API keys, or an external AI integration.
@@ -24,7 +24,7 @@ project root must be this `web-demo` directory.
 
 Open `http://127.0.0.1:8793`.
 
-## What judges can test
+## What the evaluator covers
 
 - Needle retrieval with a redacted credential reference.
 - Multi-source and ambiguous evidence.

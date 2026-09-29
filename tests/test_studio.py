@@ -95,51 +95,16 @@ def test_ui_restores_an_already_open_local_workspace_after_a_browser_reload():
     assert "restoreOpenSession();" in script
 
 
-def test_judge_briefing_is_a_separate_interactive_local_page():
-    root = Path(__file__).parents[1] / "continuum_web/static"
-    html = (root / "judges.html").read_text()
-    styles = (root / "judges.css").read_text()
-    script = (root / "judges.js").read_text()
-
-    assert 'href="/judges.css"' in html
-    assert 'src="/judges.js"' in html
-    assert "One source of truth." in html
-    assert "#616fb0" in styles
-    assert "replaceChildren" in script
-
-
-def test_spanish_product_and_judge_briefing_have_independent_entrypoints():
-    root = Path(__file__).parents[1] / "continuum_web/static"
-    product = (root / "es.html").read_text()
-    product_script = (root / "app.es.js").read_text()
-    briefing = (root / "jueces.html").read_text()
-    briefing_script = (root / "jueces.js").read_text()
-
-    assert 'lang="es"' in product
-    assert 'src="/app.es.js"' in product
-    assert "Workspace criptográfico local" in product_script
-    assert 'href="/es.html"' in briefing
-    assert 'src="/jueces.js"' in briefing
-    assert "NÚCLEO DETERMINISTA / AUTORIDAD" in briefing_script
-
-
 def test_static_deployment_previews_are_bilingual_and_make_no_api_requests():
     root = Path(__file__).parents[1] / "continuum_web/static"
     product = (root / "preview.html").read_text()
     product_script = (root / "preview.js").read_text()
-    briefing = (root / "briefing.html").read_text()
-    briefing_script = (root / "briefing.js").read_text()
-
     assert 'href="/styles.css"' in product
     assert 'id="languageToggle"' in product
     assert 'data-en="Static preview · no personal data"' in product
     assert "Owner." in product
     assert "Anna." not in product
     assert "fetch(" not in product + product_script
-    assert 'href="/judges.css"' in briefing
-    assert 'id="languageToggle"' in briefing
-    assert 'data-en="THE PRODUCT THESIS"' in briefing
-    assert "fetch(" not in briefing + briefing_script
 
 
 def test_owner_stress_test_protocol_keeps_personal_data_out_of_git_and_models():

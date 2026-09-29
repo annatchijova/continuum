@@ -9,8 +9,6 @@
 *A private, cryptographically verifiable memory — for the people you love,
 and for your own life while you're still living it.*
 
-Licensed under the [Apache License 2.0](LICENSE).
-
 ## What Continuum is
 
 Continuum turns a scattered life archive — documents, context, memories, and
@@ -28,11 +26,11 @@ It has two intentionally different experiences:
 
 - **Real Studio:** a local encrypted vault for a person and the people they
   trust. It can be used entirely without an API key or cloud account.
-- **Public evaluator:** a Vercel-hosted copy of the Studio with 40 redacted,
-  deterministic fixtures, so judges can test the flow without receiving a
+- **Public evaluator:** a static copy of the Studio with 40 redacted,
+  deterministic fixtures, so anyone can test the flow without receiving a
   vault or private documents.
 
-**Try the evaluator:** open the local static evaluator at `continuum_web/static/judges.html`.
+**Try the evaluator:** open the local static evaluator at `continuum_web/static/briefing.html`.
 
 ## Who Continuum is for
 
@@ -125,7 +123,7 @@ The terminal prints the local Studio address when it starts. Click **Run a
 safe sample** to explore a fictional local vault immediately: no personal
 folder, API key, or account is required. For the ready-to-explore public
 fixture with evaluator questions, use the local evaluator at
-`continuum_web/static/judges.html`.
+`continuum_web/static/briefing.html`.
 
 ### Demo mode — no files to import
 
@@ -191,14 +189,14 @@ tested directly:
   involved — never the sensitive question itself, and never the narrated
   text. Privacy holds even in the system's own logbook.
 
-## Public evaluator for judges
+## Public evaluator
 
 The [`web-demo/`](web-demo) directory is a deployable static copy of the
 Studio interface. It starts with 40 curated, redacted fixtures and lets a
-judge exercise creation, 3-of-5 recovery, owner/heir boundaries, integrity,
+user exercise creation, 3-of-5 recovery, owner/heir boundaries, integrity,
 and deterministic question scenarios without cloning or running a vault.
 
-The static evaluator is available at `continuum_web/static/judges.html`.
+The static evaluator is available at `continuum_web/static/briefing.html`.
 
 To deploy it yourself, select `web-demo` as the Vercel Root Directory, or run:
 
@@ -288,7 +286,7 @@ continuum/
 ├── continuum_web/                 local-first Studio and browser presentation
 │   ├── server.py                  loopback server and session coordinator
 │   ├── narrator.py                bounded optional GPT-5.6 narration boundary
-│   └── static/                    owner, heir, Spanish, and judges' interfaces
+│   └── static/                    owner, heir, Spanish, and evaluator interfaces
 ├── legacy/                        deterministic product core
 │   ├── agent/                     queries, memory agent, heir guide, export, doctor
 │   ├── core/                      audit chain, canonicalization, DB crypto,
@@ -303,7 +301,7 @@ continuum/
 │   ├── test_vault*.py             vault and encryption coverage
 │   ├── test_memory*.py            retrieval, memory, and DB encryption coverage
 │   └── test_*.py                  audit, custody, export, policy, and Studio tests
-├── vercel-judges-preview/         static judge-facing preview
+├── web-demo/                      static evaluator preview
 ├── KNOWN_LIMITATIONS.md           explicit design limits and trust boundaries
 ├── STRESS_TEST.md                 owner-data testing protocol and safety boundary
 ├── stress-oracle.template.md      private evaluation template
@@ -315,7 +313,7 @@ continuum/
 ```
 
 This is a working Python package with a CLI, a local web application, encrypted
-storage, a separately testable core, judge-facing presentation surfaces, and
+storage, a separately testable core, product presentation surfaces, and
 security regression tests. The browser UI is only the presentation layer; the
 authoritative behavior remains in the `legacy/` core.
 
@@ -461,10 +459,6 @@ python -m pytest -q
 | `LEGACY_OWNER_ID` | Owner identifier |
 | `LEGACY_HMAC_KEY` | Hex HMAC key for the audit trail (recommended: at least 32 bytes) |
 | `LEGACY_HMAC_KEY_FILE` | Alternative path to a file containing the key bytes |
-
-## Submission materials
-
-- [Judge submission and compliance record](SUBMISSION_COMPLIANCE.md)
 
 ## Continuum
 

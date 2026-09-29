@@ -92,7 +92,7 @@ if (!reducedMotion) {
 // Static public fixture adapter. The rendered interface is the real Studio
 // surface; only its network boundary is replaced with redacted fixtures so no
 // private vault, credential, share, key, or model request reaches Vercel.
-let fixtureDashboard = { owner_email: "judge@continuum.demo", role: "owner", total_artifacts: 40, by_category: { credential: 2, medical: 5, financial: 8, personal: 7, subscription: 4, real_estate: 2, professional: 4, identity: 3, media: 2, unknown: 3 }, audit_events: 86, integrity: true, hmac_checked: true, database_encrypted: true, heir_policy_configured: true };
+let fixtureDashboard = { owner_email: "owner@continuum.demo", role: "owner", total_artifacts: 40, by_category: { credential: 2, medical: 5, financial: 8, personal: 7, subscription: 4, real_estate: 2, professional: 4, identity: 3, media: 2, unknown: 3 }, audit_events: 86, integrity: true, hmac_checked: true, database_encrypted: true, heir_policy_configured: true };
 const fixtureSources = {
   codeword: [{ artifact: "demo/sillonrojo.md", category: "credential", excerpt: "Public fixture: the codeword is sillonrojo; all account values are redacted." }],
   appointment: [{ artifact: "demo/misc/voice-note-transcript.md", category: "personal", excerpt: "The appointment notes may be in the red folder, the desk drawer, or scanned documents by date." }],

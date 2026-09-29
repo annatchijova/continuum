@@ -27,9 +27,6 @@ htmlcov/
 *.db-shm
 *.lock
 
-# Local Vercel deploy staging copy for the static briefing/preview pages
-vercel-judges-preview/
-
 # Environment / secrets
 .env
 *.key
