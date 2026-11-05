@@ -26,6 +26,11 @@ security audit reports are intentionally not copied into Continuum.
   as `real_estate`) answered "No relevant information found" although the
   record existed. The query engine now retries without the inferred filter
   and states that it did. An explicit category filter remains strict.
+- The category inferred from a question is now only a tie-breaking hint.
+  Previously it filtered recall whenever it had any match, so a weak match
+  in the inferred category could hide the record that actually answered the
+  question. Results are selected by relevance, and an answer is labelled
+  with a category only when every result belongs to it.
 - `verify_memory_integrity` now also compares each memory's `category` and
   `artifact` location with the sealed vault index; changing either outside
   the vault is reported as tampering.

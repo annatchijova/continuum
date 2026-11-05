@@ -84,14 +84,14 @@ def test_r10_001_studio_ask_returns_sources(studio):
     assert result["category"] is None
 
 
-def test_r10_001_matching_category_still_filters(tmp_path):
-    """No fallback when the inferred category has results."""
+def test_r10_001_matching_category_still_ranks_first(tmp_path):
+    """The inferred category no longer filters (R11-001), but a record in it
+    that matches best is still selected first."""
     memory = MemoryField(tmp_path / "m.db")
     memory.store("medical history diagnosis penicillin allergy", DocCategory.MEDICAL)
     memory.store("medical insurance invoice paid by bank transfer", DocCategory.FINANCIAL)
     response = QueryEngine(memory).query("medical history diagnosis", top_k=6)
-    assert response.category_filter == DocCategory.MEDICAL
-    assert {r.category for r in response.results} == {DocCategory.MEDICAL}
+    assert response.results[0].category == DocCategory.MEDICAL
 
 
 def test_r10_001_truly_absent_information_is_still_reported(tmp_path):
