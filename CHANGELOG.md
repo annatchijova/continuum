@@ -8,6 +8,14 @@ security audit reports are intentionally not copied into Continuum.
 
 ### Fixed
 
+- Continuum Studio now accepts API requests only from its own local page:
+  the `Host` header must name the loopback server, a browser `Origin` must
+  match it, cross-site fetch metadata is refused, and POST bodies must be
+  `application/json`. Other web pages can no longer trigger narration,
+  captures, or session changes, and DNS-rebinding pages cannot read API
+  responses. Request bodies are read before the session lock is taken, and
+  idle connections time out, so a stalled client cannot freeze the app.
+
 - Memory field retrieval scored plain term frequency with no inverse-document-
   frequency weighting, and its vocabulary cap discarded rare, distinctive
   terms (names, codewords, identifiers) in favor of common ones — the
