@@ -154,13 +154,17 @@ def _validate_narration(
     return output
 
 
-def _endpoint(base_url: str) -> str:
+def _require_https(base_url: str) -> str:
     """Accept only HTTPS, or plain HTTP to a loopback test server (R9-001)."""
     parsed = urlparse(base_url)
     loopback_http = parsed.scheme == "http" and parsed.hostname in _LOOPBACK_HOSTS
     if parsed.scheme != "https" and not loopback_http:
         raise NarrationError("The narration endpoint must use HTTPS.")
-    return base_url.rstrip("/") + "/chat/completions"
+    return base_url
+
+
+def _endpoint(base_url: str) -> str:
+    return _require_https(base_url).rstrip("/") + "/chat/completions"
 
 
 class _RefuseRedirect(HTTPRedirectHandler):
@@ -283,15 +287,35 @@ def narrate(question: str, deterministic_answer: str, excerpts: Iterable[str]) -
         return _validate_narration(content, question, deterministic_answer, excerpts)
 
     try:
-        from agents import Agent, ModelSettings, RunConfig, Runner
+        from agents import Agent, ModelSettings, OpenAIResponsesModel, RunConfig, Runner
+        import openai
     except ImportError as exc:
         raise NarrationError(
             "Narration needs 'openai-agents'. Start Studio with "
             "./run_studio.sh (or .venv/bin/python), not system python3."
         ) from exc
+    base_url = os.environ.get("OPENAI_BASE_URL")
+    if base_url:
+        _require_https(base_url)
+    # The SDK's default client follows redirects; on a 307 it re-sends the
+    # request body (the selected plaintext) to the redirect host. Bind this
+    # agent to a client that never leaves the configured origin (R9-003).
+    http_client_class = getattr(openai, "DefaultAsyncHttpx2Client", None) or getattr(
+        openai, "DefaultAsyncHttpxClient"
+    )
+    client_options = {
+        "api_key": api_key,
+        "http_client": http_client_class(follow_redirects=False),
+    }
+    if base_url:
+        client_options["base_url"] = base_url
+    client = openai.AsyncOpenAI(**client_options)
     agent = Agent(
         name="Continuum narrator",
-        model=os.environ.get("CONTINUUM_OPENAI_MODEL", "gpt-5.6"),
+        model=OpenAIResponsesModel(
+            model=os.environ.get("CONTINUUM_OPENAI_MODEL", "gpt-5.6"),
+            openai_client=client,
+        ),
         model_settings=ModelSettings(store=False),
         instructions=_INSTRUCTIONS,
     )

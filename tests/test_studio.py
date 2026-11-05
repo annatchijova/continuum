@@ -265,6 +265,15 @@ def test_agents_sdk_narrator_is_stateless_and_untraced(monkeypatch):
             ModelSettings=FakeModelSettings,
             RunConfig=FakeRunConfig,
             Runner=FakeRunner,
+            OpenAIResponsesModel=lambda model, openai_client: model,
+        ),
+    )
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "openai",
+        SimpleNamespace(
+            AsyncOpenAI=lambda **kwargs: None,
+            DefaultAsyncHttpx2Client=lambda **kwargs: None,
         ),
     )
 
@@ -350,6 +359,15 @@ def test_narration_withholds_a_model_attempt_to_grant_heir_access(monkeypatch):
             ModelSettings=FakeModelSettings,
             RunConfig=FakeRunConfig,
             Runner=FakeRunner,
+            OpenAIResponsesModel=lambda model, openai_client: model,
+        ),
+    )
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "openai",
+        SimpleNamespace(
+            AsyncOpenAI=lambda **kwargs: None,
+            DefaultAsyncHttpx2Client=lambda **kwargs: None,
         ),
     )
 
@@ -391,6 +409,15 @@ def test_narrator_reports_provider_status_without_exposing_request_content(monke
             ModelSettings=FakeModelSettings,
             RunConfig=FakeRunConfig,
             Runner=FakeRunner,
+            OpenAIResponsesModel=lambda model, openai_client: model,
+        ),
+    )
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "openai",
+        SimpleNamespace(
+            AsyncOpenAI=lambda **kwargs: None,
+            DefaultAsyncHttpx2Client=lambda **kwargs: None,
         ),
     )
 

@@ -214,3 +214,96 @@ def test_r9_001_key_is_never_sent_over_plain_http_to_a_remote_host(monkeypatch, 
     with pytest.raises(narrator.NarrationError, match="HTTPS"):
         narrator.narrate(QUESTION, ANSWER, EVIDENCE)
     assert sent == []
+
+
+# --- R9-003: variant on the OpenAI Agents SDK path ----------------------------
+#
+# Live probe (openai 3.46.0, openai-agents 0.24.0): the SDK strips
+# Authorization on a cross-host redirect, but on a 307 it re-POSTs the full
+# request body - the plaintext excerpts - to the redirect host, and it accepts
+# a plain-HTTP OPENAI_BASE_URL. Fix: a per-agent AsyncOpenAI client whose
+# HTTP client never follows redirects (the pattern OpenAI documents for
+# keeping requests on one origin), plus the same HTTPS rule as NVIDIA.
+
+
+@pytest.fixture()
+def fake_openai_sdk(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+
+    captured: dict = {}
+
+    class FakeHttpClient:
+        def __init__(self, **kwargs):
+            captured["http_client"] = kwargs
+
+    class FakeAsyncOpenAI:
+        def __init__(self, **kwargs):
+            captured["client"] = kwargs
+
+    class FakeResponsesModel:
+        def __init__(self, model, openai_client, **kwargs):
+            captured["model"] = (model, openai_client)
+
+    class FakeRunner:
+        @staticmethod
+        def run_sync(agent, message, **kwargs):
+            captured["agent"] = agent
+            return SimpleNamespace(final_output="The deed is in the blue archival folder.")
+
+    def record(name):
+        return lambda **kwargs: captured.setdefault(name, kwargs)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "agents",
+        SimpleNamespace(
+            Agent=record("agent_kwargs"),
+            ModelSettings=record("model_settings"),
+            RunConfig=record("run_config"),
+            Runner=FakeRunner,
+            OpenAIResponsesModel=FakeResponsesModel,
+        ),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "openai",
+        SimpleNamespace(AsyncOpenAI=FakeAsyncOpenAI, DefaultAsyncHttpx2Client=FakeHttpClient),
+    )
+    monkeypatch.setenv("CONTINUUM_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    return captured
+
+
+def test_r9_003_openai_client_never_follows_redirects(fake_openai_sdk):
+    narrator.narrate(QUESTION, ANSWER, EVIDENCE)
+    captured = fake_openai_sdk
+    assert captured["http_client"]["follow_redirects"] is False
+    assert captured["client"]["api_key"] == "sk-secret"
+    model_name, client = captured["model"]
+    assert model_name == "gpt-5.6"
+    # The agent runs on the model bound to this client, not on a bare model
+    # name that would make the SDK build its own redirect-following client.
+    assert type(captured["agent_kwargs"]["model"]).__name__ == "FakeResponsesModel"
+    assert type(captured["client"]["http_client"]).__name__ == "FakeHttpClient"
+    assert type(client).__name__ == "FakeAsyncOpenAI"
+    # The privacy contract from earlier rounds still holds.
+    assert captured["model_settings"] == {"store": False}
+    assert captured["run_config"] == {"tracing_disabled": True}
+
+
+@pytest.mark.parametrize(
+    "base_url", ["http://api.openai.com/v1", "http://10.0.0.5/v1", "ftp://api.openai.com/v1"]
+)
+def test_r9_003_openai_base_url_must_be_https(fake_openai_sdk, monkeypatch, base_url):
+    monkeypatch.setenv("OPENAI_BASE_URL", base_url)
+    with pytest.raises(narrator.NarrationError, match="HTTPS"):
+        narrator.narrate(QUESTION, ANSWER, EVIDENCE)
+    assert "client" not in fake_openai_sdk
+
+
+def test_r9_003_openai_https_or_loopback_base_url_is_passed_through(fake_openai_sdk, monkeypatch):
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://gateway.example/v1")
+    narrator.narrate(QUESTION, ANSWER, EVIDENCE)
+    assert fake_openai_sdk["client"]["base_url"] == "https://gateway.example/v1"

@@ -18,6 +18,9 @@ security audit reports are intentionally not copied into Continuum.
 - The NVIDIA narration transport no longer follows HTTP redirects, which
   could forward the API key to another host, and refuses a non-HTTPS
   endpoint other than a loopback test server.
+- The OpenAI narration agent now runs on its own client that never follows
+  redirects (a 307 re-sent the selected excerpts to the redirect host), and
+  `OPENAI_BASE_URL` must use HTTPS.
 - Narration output is normalized (Unicode compatibility, invisible
   characters, accents, common lookalike letters) before screening, and the
   screen now also withholds first-person impersonation of the deceased,
