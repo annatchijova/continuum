@@ -460,6 +460,25 @@ python -m pytest -q
 | `LEGACY_HMAC_KEY` | Hex HMAC key for the audit trail (recommended: at least 32 bytes) |
 | `LEGACY_HMAC_KEY_FILE` | Alternative path to a file containing the key bytes |
 
+
+## Project Origin and Attribution
+
+CONTINUUM originated from DIGITAL-LEGACY, an earlier project developed by Anna Tchijova.
+
+A subsequent version of the software was developed by Anna in a repository hosted under the GitHub account of her mother, Olga Vasilieva. CONTINUUM was later forked from that repository and continues the original development.
+
+The distinction between repository ownership and software authorship is intentional: the original GitHub account belonged to Olga Vasilieva, while the software development was carried out by Anna Tchijova.
+
+This history is preserved to provide transparent attribution, maintain continuity between project versions, and acknowledge the role of Olga Vasilieva in the project's history.
+
+**Project lineage:** DIGITAL-LEGACY → repository hosted by Olga Vasilieva → CONTINUUM.
+
+**Development:** Anna Tchijova.
+
+**Original repository hosting:** Olga Vasilieva.
+
+**Current repository:** https://github.com/annatchijova/continuum
+
 ## Continuum
 
 *Song: [Continuum](https://suno.com/song/049456fe-7d61-4820-8ccd-fb0377b7e925)*
