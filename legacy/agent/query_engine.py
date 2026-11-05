@@ -26,7 +26,7 @@ Detected question types:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from fractions import Fraction
 from typing import Any, Dict, List, Optional, Tuple
@@ -224,7 +224,23 @@ class QueryEngine:
             top_k=top_k,
         )
 
+        # FIX R10-001: the category inferred from the question is a hint, not
+        # evidence. The question and document classifiers can disagree (a deed
+        # may be stored as real_estate while "deed" in a question reads as
+        # legal), and a hard filter then reported "no information" for a
+        # record that exists. Retry without the filter and say so.
+        missed_category = None
+        if not results and analysis.detected_category is not None:
+            missed_category = analysis.detected_category
+            analysis = replace(analysis, detected_category=None)
+            results = self._memory.recall(search_query, top_k=top_k)
+
         answer = self._build_answer(question, analysis, results)
+        if missed_category is not None and results:
+            answer = (
+                f"No match in the '{missed_category.value}' category; "
+                f"showing results from all categories.\n{answer}"
+            )
         llm_narration: Optional[str] = None
 
         if self._llm_fn and results:

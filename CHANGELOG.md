@@ -21,6 +21,15 @@ security audit reports are intentionally not copied into Continuum.
 - The OpenAI narration agent now runs on its own client that never follows
   redirects (a 307 re-sent the selected excerpts to the redirect host), and
   `OPENAI_BASE_URL` must use HTTPS.
+- A question whose inferred category differed from the stored record's
+  category (for example "Where is the apartment deed?" against a deed stored
+  as `real_estate`) answered "No relevant information found" although the
+  record existed. The query engine now retries without the inferred filter
+  and states that it did. An explicit category filter remains strict.
+- `verify_memory_integrity` now also compares each memory's `category` and
+  `artifact` location with the sealed vault index; changing either outside
+  the vault is reported as tampering.
+- Studio's safe sample no longer replaces an open owner or heir session.
 - Narration output is normalized (Unicode compatibility, invisible
   characters, accents, common lookalike letters) before screening, and the
   screen now also withholds first-person impersonation of the deceased,

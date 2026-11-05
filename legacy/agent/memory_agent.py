@@ -1132,7 +1132,8 @@ class LegacyAgent:
                     vault_memory_ids.add(memory_id)
                     checked += 1
                     row = conn.execute(
-                        "SELECT content, state FROM memories WHERE memory_id=?",
+                        "SELECT content, state, category, artifact "
+                        "FROM memories WHERE memory_id=?",
                         (memory_id,),
                     ).fetchone()
                     if row is None:
@@ -1152,6 +1153,24 @@ class LegacyAgent:
                                 f"memory_id={memory_id[:8]}… indexed but "
                                 f"FORGOTTEN with no audit event (out-of-band "
                                 f"suppression: invisible to the heir)"
+                            )
+                        # FIX R10-002: category and artifact are cleartext
+                        # and steer what an heir sees (category-filtered
+                        # recall, the location shown in answers). Nothing
+                        # updates them after insert, so they must equal the
+                        # sealed index values.
+                        sealed_category = artifact.get("category")
+                        if sealed_category and row["category"] != sealed_category:
+                            errors.append(
+                                f"memory_id={memory_id[:8]}… category changed "
+                                f"outside the vault: vault={sealed_category} "
+                                f"actual={row['category']}"
+                            )
+                        sealed_path = artifact.get("path")
+                        if sealed_path and (row["artifact"] or "") != sealed_path:
+                            errors.append(
+                                f"memory_id={memory_id[:8]}… artifact location "
+                                f"changed outside the vault"
                             )
                         # Decrypt the stored content using the active database key.
                         content = self._memory._dec(

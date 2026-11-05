@@ -456,6 +456,11 @@ class Studio:
         }
 
     def demo(self) -> dict[str, Any]:
+        # FIX R10-003: never replace a private owner or heir session; an heir
+        # used to come back as the demo's owner. Re-running the sample from
+        # the sample itself stays allowed.
+        if self.agent is not None and not self._demo_active:
+            raise ValueError("Lock the current workspace before opening the safe sample.")
         self.lock()
         # Never replace a user's selected workspace. Demo data is confined to
         # this predictable child directory and is the only directory reset.
