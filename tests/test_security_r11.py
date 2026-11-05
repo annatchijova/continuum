@@ -1,7 +1,7 @@
 """
 tests/test_security_r11.py
 ===========================
-Red-team round R11.
+Red-team round R11. Two findings fixed (R11-001, R11-002) and one closed (C9).
 
 R11-001 (High, correctness) - variant of R10-001 that its fix missed. The
 R10 fallback dropped the inferred category only when it yielded *nothing*.
@@ -125,3 +125,92 @@ def test_c9_state_promotion_cannot_displace_a_clear_best_match(studio):
         )
     response = QueryEngine(instance.agent._memory).query(QUESTION, top_k=6)
     assert response.results[0].memory_id == target["memory_id"]
+
+
+# --- R11-002: heir revocation matched the raw identifier ---------------------
+#
+# After revoke_heir("heir-one") with a satisfied inactivity policy, open_heir
+# denied "heir-one" but granted "Heir-One", "heir-one " and any unregistered
+# id. revoke_heir also matched the raw string, so revoking "H1" removed no key
+# for "h1". Within KL-011 a passphrase holder can still use the owner path;
+# this fix makes the logical layer keep its documented promise and keeps the
+# audit actor attributable.
+
+from datetime import datetime, timezone
+
+from legacy.agent.memory_agent import LegacyAgent
+from legacy.vault.conditions import AccessPolicy, InactivityCondition
+
+HEIR_PASS = "pw-0123456789"
+
+
+def _vault(tmp_path, heirs=("heir-one",), revoke=None):
+    agent = LegacyAgent(tmp_path / "v", "owner")
+    agent.initialize(
+        HEIR_PASS,
+        policy=AccessPolicy(
+            [
+                InactivityCondition(
+                    days=1,
+                    last_activity_iso=datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat(),
+                )
+            ]
+        ),
+    )
+    for heir in heirs:
+        agent.add_heir(heir, heir)
+    if revoke:
+        agent.revoke_heir(revoke)
+    agent.lock(HEIR_PASS)
+    return tmp_path / "v"
+
+
+def _try(path, heir_id, **kwargs):
+    agent = LegacyAgent(path, "owner")
+    granted = agent.open_heir(heir_id, HEIR_PASS, **kwargs)
+    if granted:
+        agent.lock(HEIR_PASS)
+    return granted
+
+
+@pytest.mark.parametrize("variant", ["heir-one", "Heir-One", "heir-one ", " HEIR-ONE"])
+def test_r11_002_revoked_heir_denied_under_any_spelling(tmp_path, variant):
+    path = _vault(tmp_path, revoke="heir-one")
+    assert _try(path, variant) is False
+
+
+def test_r11_002_unregistered_id_denied_when_heirs_are_registered(tmp_path):
+    path = _vault(tmp_path)
+    assert _try(path, "never-registered") is False
+    events = LegacyAgent(path, "owner")._audit.events(event_type="ACCESS_DENIED")
+    assert any("not registered" in (e.get("detail") or "") for e in events)
+
+
+def test_r11_002_registered_heir_still_granted_with_any_spelling(tmp_path):
+    """Negative control: a legitimate heir is not locked out by case/spaces."""
+    path = _vault(tmp_path)
+    assert _try(path, "Heir-One ") is True
+
+
+def test_r11_002_revoking_one_heir_keeps_the_other(tmp_path):
+    path = _vault(tmp_path, heirs=("heir-one", "heir-two"), revoke="HEIR-ONE")
+    assert _try(path, "heir-one") is False
+    assert _try(path, "heir-two") is True
+
+
+def test_r11_002_no_registered_heirs_keeps_policy_only_access(tmp_path):
+    """Compatibility: without registered heirs, the policy alone decides
+    (the documented demo walkthrough relies on this)."""
+    path = _vault(tmp_path, heirs=())
+    assert _try(path, "anyone") is True
+
+
+def test_r11_002_revoke_removes_key_under_another_spelling(tmp_path):
+    agent = LegacyAgent(tmp_path / "v", "owner")
+    agent.initialize(HEIR_PASS)
+    agent.add_heir("h1", "Daughter")
+    agent.register_heir_key("h1")
+    assert agent.revoke_heir(" H1 ") is True
+    policy = AccessPolicy.from_dict(agent._index.policy)
+    assert not any(getattr(c, "heir_id", None) == "h1" for c in policy.conditions)
+    agent.lock(HEIR_PASS)

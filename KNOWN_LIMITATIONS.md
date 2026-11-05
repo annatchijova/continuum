@@ -151,6 +151,12 @@ The recommended model delivers the passphrase only when the event occurs, for
 example through a sealed-notary instruction or dead-man's-switch service. The
 policy remains defense in depth and records `CONDITION_CHECK` events.
 
+Heir identifiers are matched trimmed and case-insensitively. Once the owner
+registers at least one heir, `open_heir()` admits only a registered,
+non-revoked heir; with no registered heirs, the policy alone decides. This is a
+logical barrier: revocation does not change the passphrase, so a revoked heir
+who knows it can still use the owner path. Revoke and then `rekey`.
+
 ### Implemented custody mitigations
 
 Shamir K-of-N custody (`legacy custody setup`) puts a recovery key in independent

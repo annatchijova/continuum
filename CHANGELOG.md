@@ -31,6 +31,12 @@ security audit reports are intentionally not copied into Continuum.
   in the inferred category could hide the record that actually answered the
   question. Results are selected by relevance, and an answer is labelled
   with a category only when every result belongs to it.
+- Heir revocation compared the raw identifier: a revoked "heir-one" could
+  still open the vault as "Heir-One" or "heir-one ", and any unregistered
+  identifier was accepted. Heir identifiers are now matched trimmed and
+  case-insensitively, and once heirs are registered only a registered,
+  non-revoked heir can open. KL-011 still applies: revocation without
+  `rekey` does not stop someone who knows the passphrase.
 - `verify_memory_integrity` now also compares each memory's `category` and
   `artifact` location with the sealed vault index; changing either outside
   the vault is reported as tampering.
