@@ -301,7 +301,7 @@ def test_nvidia_narrator_uses_its_openai_compatible_chat_endpoint(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test-key")
     monkeypatch.setenv("CONTINUUM_LLM_PROVIDER", "nvidia")
-    monkeypatch.setattr(narrator, "urlopen", fake_urlopen)
+    monkeypatch.setattr(narrator, "_post", fake_urlopen)
 
     answer = narrator.narrate("Where is the deed?", "Found one item.", ["blue folder"])
 

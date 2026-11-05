@@ -15,6 +15,15 @@ security audit reports are intentionally not copied into Continuum.
   captures, or session changes, and DNS-rebinding pages cannot read API
   responses. Request bodies are read before the session lock is taken, and
   idle connections time out, so a stalled client cannot freeze the app.
+- The NVIDIA narration transport no longer follows HTTP redirects, which
+  could forward the API key to another host, and refuses a non-HTTPS
+  endpoint other than a loopback test server.
+- Narration output is normalized (Unicode compatibility, invisible
+  characters, accents, common lookalike letters) before screening, and the
+  screen now also withholds first-person impersonation of the deceased,
+  directive legal, financial, or medical advice, and numbers absent from the
+  selected evidence. This remains a deterministic mitigation; the core
+  result is always shown and is the fallback.
 
 - Memory field retrieval scored plain term frequency with no inverse-document-
   frequency weighting, and its vocabulary cap discarded rare, distinctive
