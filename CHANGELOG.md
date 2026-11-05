@@ -8,6 +8,13 @@ security audit reports are intentionally not copied into Continuum.
 
 ### Fixed
 
+- `ArtifactStore` built an artifact's on-disk path directly from its id with
+  no format check. An id containing path separators (never produced by
+  `archive`, but accepted by every read method) resolved outside the store
+  directory. The id is now required to be exactly the 64-character lowercase
+  SHA-256 hex digest it is supposed to be before any path is built from it.
+  No code path today passes an external id to `ArtifactStore`, so this closes
+  a latent primitive rather than a reachable exploit.
 - Continuum Studio now accepts API requests only from its own local page:
   the `Host` header must name the loopback server, a browser `Origin` must
   match it, cross-site fetch metadata is refused, and POST bodies must be

@@ -1,7 +1,16 @@
-# Red-Team Handoff (R8–R11 done; R12 next)
+# Red-Team Handoff (R8–R12 done; C16/C17 next)
 
-**Status:** paused on 2026-11-05. The owner will resume in about a month, from
-a different account and a new session.
+**Status update, 2026-11-05 (same day):** PR #1 was merged into `main`
+(merge commit, no squash/rebase). `claude/red-team-r12`'s handoff commit was
+then merged into `main` too, so `handoff/red-team/` now lives on `main`.
+R12 ran and is closed: see `reports/REPORT-R12.md`. Full suite on `main`:
+604 passed. The next session should branch from `main`; the
+`claude/peaceful-gauss-09l0j9` / `claude/red-team-r12` branch split
+described below is historical context for how R8–R12 happened, not the
+current branch state.
+
+**Original status (superseded above):** paused on 2026-11-05. The owner
+will resume in about a month, from a different account and a new session.
 
 This folder is **not product documentation**. It holds adversarial findings, so
 keep it out of the product docs, as `AGENTS.md` requires. The owner explicitly
@@ -108,19 +117,26 @@ python3 -I handoff/red-team/poc/r11/c11.py
 | C5 | The heir sees the owner email; this is a product decision. |
 | C9 | Ranking via cleartext `state`/`last_access` reorders only near-ties: decoys went 0.153 → 0.205 while the target stayed at 0.876. Per-id promotion attribution would false-flag older consolidated workspaces. Pinned by `test_c9_*`. |
 
-## 4. What to do next: R12, the filesystem boundary
+## 4. R12 results (done, this session) and what's next
 
-None of these have been examined yet. They are hypotheses, not findings.
+R12 examined the filesystem boundary. Full write-up: `reports/REPORT-R12.md`.
+
+| Candidate | Outcome |
+|-----------|---------|
+| C14 | **Fixed as R12-001** (Medium, hardening). `ArtifactStore._path_for` had no validation that `artifact_hash` was a real 64-hex SHA-256 digest; a crafted id (`"..s/../outside_target"`) resolved outside the store directory, confirmed by induction (`poc/r12/poc_r12_001.py`). Not reachable by an external attacker today — every current caller passes a disk-enumerated or in-process-computed id — so this closes a latent primitive, not a live exploit. Fixed by validating the id in `_path_for`, the single choke point every read/write method shares. |
+| C13 | **Closed without change.** `Path.replace()` does not follow a symlink at the destination (reproduced directly); and `dest` is always chosen by the same local operator who already holds the passphrase, so there is no privilege boundary to cross regardless. |
+| C15 | **Closed without change.** Bundle filenames are always fixed names or content-hash-derived (`artifacts/<hash[:2]>/<hash>.enc`); no record-controlled string ever becomes a path segment. Falsified by code reading. |
+| C16 | **Still open**, deferred — out of R12's time budget. 1122 lines never fully reviewed. Opportunistic checks while tracing C13 found nothing new: passphrase prompts use `getpass` (not argv/echo); `.enc` artifact files are mode `0o664` (world-readable but AES-256-GCM encrypted — hygiene, not disclosure; see new candidate C17). |
+| C12 | Still open, low priority (unchanged from R11). |
+
+### What to do next: C16, C17
 
 | Candidate | Target | Hypothesis | Falsifier |
 |-----------|--------|-----------|-----------|
-| C13 | `legacy/vault/artifact_store.py` `restore()` and `memory_agent.restore_artifact()` | The destination path is caller-chosen. Check traversal, following a pre-existing symlink at the destination, silent overwrite, and non-atomic writes leaving plaintext partials. | Restore into a directory where the target name is a symlink to an outside file; check whether the outside file changes. |
-| C14 | `artifact_store.py` storage layout | Artifacts are named by content hash. Check whether the hash in a path or the CLI argument is validated (`../`, non-hex), and whether the restore check binds hash ↔ ciphertext ↔ AAD. | Restore with `artifact_hash="../../x"`; swap two `.enc` files and check whether both still restore. |
-| C15 | `legacy/agent/export_bundle.py` | What exactly goes into the heir bundle: plaintext, keys, the audit DB? Can a crafted record (filename or content) inject paths or content into the bundle? | Export with a record titled `../../evil` and inspect the archive member names. |
-| C16 | `legacy/cli.py` (1122 lines, never reviewed) | Passphrase handling (argv vs prompt, echo, env), file permissions of created files, and paths taken from the CLI. | `ps` during a CLI run; `stat` of `legacy.vault`, `*.db` and exported files. |
-| C12 | `query_engine.py` | Residual classifier disagreement now affects only wording (labels, LIST intent), not selection. | Low priority. |
+| C16 | `legacy/cli.py` (1122 lines, never reviewed) | Passphrase handling (argv vs prompt, echo, env) beyond what R12 spot-checked, file permissions of created files across every command (not just artifacts), paths taken unsanitized from CLI arguments elsewhere. | `ps` during a CLI run; `stat` of `legacy.vault`, `*.db`, and exported files for every `cmd_*`. |
+| C17 | Everywhere `legacy/` creates a file (`vault.json`, `memory.db`, `audit.db`, `.enc` artifacts) | File permissions come from the default umask, not an explicit `chmod`/`os.open(mode=...)`. Check whether any created file is readable by other local users on a multi-user system. | `stat` every file `legacy init` / `archive` / `ingest` creates on a fresh `umask 022` and `umask 002` system; compare to a deliberate `0o600` policy. |
 
-Suggested order: C13 → C14 → C15 → C16. The restore path writes plaintext to disk, so it carries the most risk.
+Suggested order: C16 → C17 (C16 may turn up the umask question as a byproduct).
 
 ## 5. Open decisions for the owner
 

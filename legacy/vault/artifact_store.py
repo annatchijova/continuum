@@ -30,6 +30,7 @@ degradation when a directory contains thousands of files.
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 from pathlib import Path
 from typing import Dict, List
@@ -55,6 +56,20 @@ _HEADER_LEN = len(STORE_MAGIC) + _SALT_LEN + _NONCE_LEN
 _HEADER_V2_LEN = len(STORE_MAGIC_V2) + _NONCE_LEN
 _GCM_TAG_LEN = 16
 _KEY_LEN = 32
+
+# A content-addressed id is exactly a lowercase SHA-256 hex digest. Anything
+# else (path separators, "..", a different length) is rejected before it
+# reaches a filesystem path, closing the traversal primitive in `_path_for`.
+_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _validate_hash(artifact_hash: str) -> str:
+    if not isinstance(artifact_hash, str) or not _HASH_RE.fullmatch(artifact_hash):
+        raise VaultNotFoundError(
+            f"Not a valid artifact id: {artifact_hash!r}"
+        )
+    return artifact_hash
+
 
 # Secret validation helpers.
 Secret = "str | bytes"
@@ -92,6 +107,7 @@ class ArtifactStore:
     # Path and envelope helpers.
 
     def _path_for(self, artifact_hash: str) -> Path:
+        artifact_hash = _validate_hash(artifact_hash)
         return self._dir / artifact_hash[:2] / f"{artifact_hash}.enc"
 
     # Encryption and storage.
