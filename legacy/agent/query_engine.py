@@ -26,7 +26,7 @@ Detected question types:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from fractions import Fraction
 from typing import Any, Dict, List, Optional, Tuple
@@ -218,13 +218,27 @@ class QueryEngine:
         if analysis.extracted_name:
             search_query = f"{question} {analysis.extracted_name}"
 
-        results = self._memory.recall(
-            search_query,
-            category=analysis.detected_category,
-            top_k=top_k,
-        )
+        # FIX R10-001 / R11-001: the category inferred from the question is a
+        # hint, never a filter. The question and document classifiers can
+        # disagree, and a filter hid the strongest record whenever the inferred
+        # category held any weaker match (or reported "no information" when it
+        # held none). One unfiltered recall (recall mutates STDP state, so it
+        # runs once) selects by relevance; the category only breaks exact ties.
+        hinted = analysis.detected_category
+        results = self._memory.recall(search_query, top_k=top_k)
+        results.sort(key=lambda r: (-r.final_score, r.category != hinted))
+
+        in_hint = [r for r in results if hinted is not None and r.category == hinted]
+        if hinted is not None and len(in_hint) != len(results):
+            # Do not label mixed results as one category.
+            analysis = replace(analysis, detected_category=None)
 
         answer = self._build_answer(question, analysis, results)
+        if hinted is not None and results and not in_hint:
+            answer = (
+                f"No match in the '{hinted.value}' category; "
+                f"showing results from all categories.\n{answer}"
+            )
         llm_narration: Optional[str] = None
 
         if self._llm_fn and results:
@@ -237,7 +251,7 @@ class QueryEngine:
         return QueryResponse(
             query=question,
             intent=analysis.intent,
-            category_filter=analysis.detected_category,
+            category_filter=analysis.detected_category if results else hinted,
             results=results,
             answer=answer,
             llm_narration=llm_narration,

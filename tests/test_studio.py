@@ -265,6 +265,15 @@ def test_agents_sdk_narrator_is_stateless_and_untraced(monkeypatch):
             ModelSettings=FakeModelSettings,
             RunConfig=FakeRunConfig,
             Runner=FakeRunner,
+            OpenAIResponsesModel=lambda model, openai_client: model,
+        ),
+    )
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "openai",
+        SimpleNamespace(
+            AsyncOpenAI=lambda **kwargs: None,
+            DefaultAsyncHttpx2Client=lambda **kwargs: None,
         ),
     )
 
@@ -301,7 +310,7 @@ def test_nvidia_narrator_uses_its_openai_compatible_chat_endpoint(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test-key")
     monkeypatch.setenv("CONTINUUM_LLM_PROVIDER", "nvidia")
-    monkeypatch.setattr(narrator, "urlopen", fake_urlopen)
+    monkeypatch.setattr(narrator, "_post", fake_urlopen)
 
     answer = narrator.narrate("Where is the deed?", "Found one item.", ["blue folder"])
 
@@ -350,6 +359,15 @@ def test_narration_withholds_a_model_attempt_to_grant_heir_access(monkeypatch):
             ModelSettings=FakeModelSettings,
             RunConfig=FakeRunConfig,
             Runner=FakeRunner,
+            OpenAIResponsesModel=lambda model, openai_client: model,
+        ),
+    )
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "openai",
+        SimpleNamespace(
+            AsyncOpenAI=lambda **kwargs: None,
+            DefaultAsyncHttpx2Client=lambda **kwargs: None,
         ),
     )
 
@@ -391,6 +409,15 @@ def test_narrator_reports_provider_status_without_exposing_request_content(monke
             ModelSettings=FakeModelSettings,
             RunConfig=FakeRunConfig,
             Runner=FakeRunner,
+            OpenAIResponsesModel=lambda model, openai_client: model,
+        ),
+    )
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "openai",
+        SimpleNamespace(
+            AsyncOpenAI=lambda **kwargs: None,
+            DefaultAsyncHttpx2Client=lambda **kwargs: None,
         ),
     )
 

@@ -8,6 +8,46 @@ security audit reports are intentionally not copied into Continuum.
 
 ### Fixed
 
+- Continuum Studio now accepts API requests only from its own local page:
+  the `Host` header must name the loopback server, a browser `Origin` must
+  match it, cross-site fetch metadata is refused, and POST bodies must be
+  `application/json`. Other web pages can no longer trigger narration,
+  captures, or session changes, and DNS-rebinding pages cannot read API
+  responses. Request bodies are read before the session lock is taken, and
+  idle connections time out, so a stalled client cannot freeze the app.
+- The NVIDIA narration transport no longer follows HTTP redirects, which
+  could forward the API key to another host, and refuses a non-HTTPS
+  endpoint other than a loopback test server.
+- The OpenAI narration agent now runs on its own client that never follows
+  redirects (a 307 re-sent the selected excerpts to the redirect host), and
+  `OPENAI_BASE_URL` must use HTTPS.
+- A question whose inferred category differed from the stored record's
+  category (for example "Where is the apartment deed?" against a deed stored
+  as `real_estate`) answered "No relevant information found" although the
+  record existed. The query engine now retries without the inferred filter
+  and states that it did. An explicit category filter remains strict.
+- The category inferred from a question is now only a tie-breaking hint.
+  Previously it filtered recall whenever it had any match, so a weak match
+  in the inferred category could hide the record that actually answered the
+  question. Results are selected by relevance, and an answer is labelled
+  with a category only when every result belongs to it.
+- Heir revocation compared the raw identifier: a revoked "heir-one" could
+  still open the vault as "Heir-One" or "heir-one ", and any unregistered
+  identifier was accepted. Heir identifiers are now matched trimmed and
+  case-insensitively, and once heirs are registered only a registered,
+  non-revoked heir can open. KL-011 still applies: revocation without
+  `rekey` does not stop someone who knows the passphrase.
+- `verify_memory_integrity` now also compares each memory's `category` and
+  `artifact` location with the sealed vault index; changing either outside
+  the vault is reported as tampering.
+- Studio's safe sample no longer replaces an open owner or heir session.
+- Narration output is normalized (Unicode compatibility, invisible
+  characters, accents, common lookalike letters) before screening, and the
+  screen now also withholds first-person impersonation of the deceased,
+  directive legal, financial, or medical advice, and numbers absent from the
+  selected evidence. This remains a deterministic mitigation; the core
+  result is always shown and is the fallback.
+
 - Memory field retrieval scored plain term frequency with no inverse-document-
   frequency weighting, and its vocabulary cap discarded rare, distinctive
   terms (names, codewords, identifiers) in favor of common ones — the

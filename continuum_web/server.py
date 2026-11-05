@@ -35,6 +35,12 @@ MAX_JSON_BODY_BYTES = 1_000_000
 # Keep the Studio transport aligned with MemoryField's indexed-content limit.
 # Larger documents need a chunked importer rather than silent truncation.
 MAX_CAPTURE_BYTES = 256 * 1024
+# Seconds a connection may stay idle while sending a request. Bounds how long
+# a slow or stalled client can occupy a worker thread (R8-002).
+REQUEST_TIMEOUT_SECONDS = 10
+# Studio binds only to loopback. Browsers reach it under these names; any other
+# Host header means DNS rebinding or a misrouted request (R8-001).
+_LOOPBACK_HOSTNAMES = ("127.0.0.1", "localhost")
 RECOVERY_SHARE_COUNT = 5
 RECOVERY_THRESHOLD = 3
 _MANAGED_WORKSPACE_FILES = (
@@ -450,6 +456,11 @@ class Studio:
         }
 
     def demo(self) -> dict[str, Any]:
+        # FIX R10-003: never replace a private owner or heir session; an heir
+        # used to come back as the demo's owner. Re-running the sample from
+        # the sample itself stays allowed.
+        if self.agent is not None and not self._demo_active:
+            raise ValueError("Lock the current workspace before opening the safe sample.")
         self.lock()
         # Never replace a user's selected workspace. Demo data is confined to
         # this predictable child directory and is the only directory reset.
@@ -495,6 +506,7 @@ def _capture_filename(title: str, filename: str | None) -> str:
 
 class Handler(SimpleHTTPRequestHandler):
     studio: Studio
+    timeout = REQUEST_TIMEOUT_SECONDS
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
@@ -518,16 +530,69 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
+    def _allowed_hosts(self) -> set[str]:
+        port = self.server.server_address[1]
+        hosts = {f"{name}:{port}" for name in _LOOPBACK_HOSTNAMES}
+        if port == 80:
+            hosts.update(_LOOPBACK_HOSTNAMES)
+        return hosts
+
+    def _is_same_origin_request(self, *, api: bool = True) -> bool:
+        """Refuse DNS rebinding and cross-site browser requests (R8-001).
+
+        * ``Host`` must name this loopback server: a rebinding page reaches
+          127.0.0.1 under the attacker's hostname, which fails here.
+        * ``Origin``, when a browser sends it, must be this server.
+        * ``Sec-Fetch-Site``, when present, must be same-origin or a
+          user-initiated navigation (``none``).
+        """
+        allowed = self._allowed_hosts()
+        host = (self.headers.get("Host") or "").strip().lower()
+        if host not in allowed:
+            return False
+        if not api:
+            # Static assets hold no vault data; allow opening Studio from a
+            # link on another site while still refusing rebinding via Host.
+            return True
+        origin = self.headers.get("Origin")
+        if origin is not None and origin.strip().lower() not in {
+            f"http://{item}" for item in allowed
+        }:
+            return False
+        site = self.headers.get("Sec-Fetch-Site")
+        if site is not None and site.strip().lower() not in {"same-origin", "none"}:
+            return False
+        return True
+
+    def _refuse_foreign_origin(self) -> bool:
+        api = urlparse(self.path).path.startswith("/api/")
+        if self._is_same_origin_request(api=api):
+            return False
+        self._json(
+            {"error": "Continuum Studio only accepts requests from its own local page."},
+            HTTPStatus.FORBIDDEN,
+        )
+        return True
+
+    def do_HEAD(self) -> None:
+        if self._refuse_foreign_origin():
+            return
+        super().do_HEAD()
+
     def do_GET(self) -> None:
+        if self._refuse_foreign_origin():
+            return
         if urlparse(self.path).path == "/api/health":
             self._json({"ok": True, "product": "Continuum Studio"})
             return
         if urlparse(self.path).path == "/api/dashboard":
-            self._run(lambda _: self.studio.snapshot())
+            self._run(lambda _: self.studio.snapshot(), {})
             return
         super().do_GET()
 
     def do_POST(self) -> None:
+        if self._refuse_foreign_origin():
+            return
         route = urlparse(self.path).path
         routes = {
             "/api/create": lambda body: self.studio.create(
@@ -571,7 +636,26 @@ class Handler(SimpleHTTPRequestHandler):
         if action is None:
             self._json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
             return
-        self._run(action)
+        # A non-JSON media type is what lets a cross-site page skip the CORS
+        # preflight. Requiring JSON forces that preflight, which this server
+        # never approves (R8-001).
+        if self.headers.get_content_type() != "application/json":
+            self._json(
+                {"error": "Requests must use Content-Type: application/json."},
+                HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+            )
+            return
+        # Read the body before taking the session mutex, so a slow client
+        # cannot freeze every other request (R8-002).
+        try:
+            body = self._read_json()
+        except (TimeoutError, ConnectionError):
+            self.close_connection = True
+            return
+        except (ValueError, json.JSONDecodeError) as exc:
+            self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self._run(action, body)
 
     def _locked(self) -> dict[str, bool]:
         self.studio.lock()
@@ -586,11 +670,12 @@ class Handler(SimpleHTTPRequestHandler):
             raise ValueError("Request is too large.")
         return _decode_json_object(self.rfile.read(size))
 
-    def _run(self, action) -> None:
+    def _run(self, action, body: dict[str, Any]) -> None:
         try:
             with self.studio._mutex:
-                self._json(action(self._read_json() if self.command == "POST" else {}))
-        except (ValueError, json.JSONDecodeError) as exc:
+                result = action(body)
+            self._json(result)
+        except ValueError as exc:
             self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
         except Exception:
             self._json(

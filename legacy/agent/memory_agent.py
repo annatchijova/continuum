@@ -101,6 +101,11 @@ class LegacyIndex:
 
 # Legacy agent.
 
+
+def _heir_identity(value: object) -> str:
+    """Canonical heir identifier for matching (R11-002): trimmed, casefolded."""
+    return value.strip().casefold() if isinstance(value, str) else ""
+
 class LegacyAgent:
     """
     Main digital-legacy agent.
@@ -611,15 +616,29 @@ class LegacyAgent:
 
         index = LegacyIndex.from_dict(raw)
 
+        # FIX R11-002: match heirs by a normalized identifier. A raw string
+        # comparison let "Heir-One" or "heir-one " past the revocation of
+        # "heir-one", and any unregistered id passed too. Within KL-011 this
+        # is a logical barrier, not a cryptographic one.
+        wanted = _heir_identity(heir_id)
+        matching = [h for h in index.heirs if _heir_identity(h.get("heir_id")) == wanted]
+
         # Revoked heirs are denied even with a valid passphrase.
-        if any(
-            h.get("heir_id") == heir_id and h.get("revoked_at")
-            for h in index.heirs
-        ):
+        if any(h.get("revoked_at") for h in matching):
             self._audit.append(
                 "ACCESS_DENIED",
                 actor=heir_id,
                 detail="heir revoked",
+            )
+            return False
+
+        # Once the owner registers heirs, only a registered heir may open.
+        # With none registered, the policy alone decides (legacy behavior).
+        if index.heirs and not matching:
+            self._audit.append(
+                "ACCESS_DENIED",
+                actor=heir_id,
+                detail="heir not registered",
             )
             return False
 
@@ -739,8 +758,9 @@ class LegacyAgent:
             raise RuntimeError("Vault is not open.")
 
         found = False
+        wanted = _heir_identity(heir_id)
         for h in self._index.heirs:
-            if h.get("heir_id") == heir_id and not h.get("revoked_at"):
+            if _heir_identity(h.get("heir_id")) == wanted and not h.get("revoked_at"):
                 h["revoked_at"] = datetime.now(timezone.utc).isoformat()
                 found = True
 
@@ -749,7 +769,10 @@ class LegacyAgent:
             policy = AccessPolicy.from_dict(self._index.policy)
             kept = [
                 c for c in policy.conditions
-                if not (isinstance(c, HeirKeyCondition) and c.heir_id == heir_id)
+                if not (
+                    isinstance(c, HeirKeyCondition)
+                    and _heir_identity(c.heir_id) == wanted
+                )
             ]
             removed_keys = len(policy.conditions) - len(kept)
             if removed_keys:
@@ -1132,7 +1155,8 @@ class LegacyAgent:
                     vault_memory_ids.add(memory_id)
                     checked += 1
                     row = conn.execute(
-                        "SELECT content, state FROM memories WHERE memory_id=?",
+                        "SELECT content, state, category, artifact "
+                        "FROM memories WHERE memory_id=?",
                         (memory_id,),
                     ).fetchone()
                     if row is None:
@@ -1152,6 +1176,24 @@ class LegacyAgent:
                                 f"memory_id={memory_id[:8]}… indexed but "
                                 f"FORGOTTEN with no audit event (out-of-band "
                                 f"suppression: invisible to the heir)"
+                            )
+                        # FIX R10-002: category and artifact are cleartext
+                        # and steer what an heir sees (category-filtered
+                        # recall, the location shown in answers). Nothing
+                        # updates them after insert, so they must equal the
+                        # sealed index values.
+                        sealed_category = artifact.get("category")
+                        if sealed_category and row["category"] != sealed_category:
+                            errors.append(
+                                f"memory_id={memory_id[:8]}… category changed "
+                                f"outside the vault: vault={sealed_category} "
+                                f"actual={row['category']}"
+                            )
+                        sealed_path = artifact.get("path")
+                        if sealed_path and (row["artifact"] or "") != sealed_path:
+                            errors.append(
+                                f"memory_id={memory_id[:8]}… artifact location "
+                                f"changed outside the vault"
                             )
                         # Decrypt the stored content using the active database key.
                         content = self._memory._dec(
